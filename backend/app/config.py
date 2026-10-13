@@ -1,24 +1,28 @@
+import secrets
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    """All configuration comes from environment variables (or backend/.env). No secrets in code."""
+    """Configuration with working defaults: no .env file and no API keys are needed. Real process
+    environment variables (e.g. DATABASE_URL, set by the deployment) still override a default."""
 
-    model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore")
 
     app_env: str = "development"
     # Supabase: use the Postgres connection string, e.g.
     # postgresql+psycopg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'greentrace.db').as_posix()}"
 
-    jwt_secret: str = Field(min_length=32)
+    # Generated on first start and kept in the storage directory (so it survives restarts and is
+    # shared by every instance mounting that directory). Set JWT_SECRET to pin your own.
+    jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 8 * 60
 
@@ -37,12 +41,11 @@ class Settings(BaseSettings):
     max_files_per_upload: int = 50
     max_pdf_pages: int = 30
 
-    # Structured extraction (Gemini). Bills fail with a clear reason if the key is missing.
-    gemini_api_key: str | None = None
-    gemini_model: str = "gemini-3.8-flash"
-    gemini_timeout_seconds: int = 120
-    # Free-tier keys allow only a few requests per minute (5 for flash models at the time of writing).
-    gemini_requests_per_minute: int | None = None
+    # Structured extraction: a LangChain chat model served by a local Ollama server (no API key).
+    llm_base_url: str = "http://localhost:11434"
+    llm_model: str = "llama3.1:8b"
+    llm_timeout_seconds: int = 300
+    llm_context_tokens: int = 16384
     max_prompt_chars: int = 60_000
     extraction_workers: int = 3
     requeue_on_startup: bool = True  # resume bills interrupted by a restart
@@ -58,6 +61,12 @@ class Settings(BaseSettings):
     outlier_ratio: float = 3.0  # flag if daily usage is >3x or <1/3 of the facility's median
     outlier_min_history: int = 3
 
+    @model_validator(mode="after")
+    def _ensure_jwt_secret(self):
+        if len(self.jwt_secret) < 32:
+            self.jwt_secret = _load_or_create_secret(self.storage_dir / ".jwt_secret")
+        return self
+
     @field_validator("database_url")
     @classmethod
     def _normalize_postgres_driver(cls, v: str) -> str:
@@ -67,6 +76,23 @@ class Settings(BaseSettings):
         if v.startswith("postgresql://"):
             v = "postgresql+psycopg://" + v[len("postgresql://"):]
         return v
+
+
+def _load_or_create_secret(path: Path) -> str:
+    try:
+        if path.exists() and len(path.read_text().strip()) >= 32:
+            return path.read_text().strip()
+        secret = secrets.token_urlsafe(48)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(secret)
+        try:
+            path.chmod(0o600)
+        except OSError:
+            pass
+        return secret
+    except OSError:
+        # Read-only filesystem: fall back to a per-process secret (logins reset on restart).
+        return secrets.token_urlsafe(48)
 
 
 @lru_cache

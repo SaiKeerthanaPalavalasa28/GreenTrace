@@ -1,3 +1,7 @@
+// Backend origin, e.g. https://greentrace-api.onrender.com (set VITE_API_URL in the Vercel project
+// settings). Empty = same origin, which the Vite dev server proxies to :8000.
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+
 const TOKEN_KEY = 'greentrace.token'
 
 export function getToken() {
@@ -37,14 +41,14 @@ function formatDetail(detail) {
 
 // For <iframe>/<a> targets that can't send an Authorization header (e.g. the bill PDF).
 export async function fetchBlobUrl(path) {
-  const res = await fetch(`/api${path}`, { headers: { Authorization: `Bearer ${getToken()}` } })
+  const res = await fetch(`${API_BASE}/api${path}`, { headers: { Authorization: `Bearer ${getToken()}` } })
   if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => null))?.detail)
   return URL.createObjectURL(await res.blob())
 }
 
 // A rendered bill page (PNG) plus the server's page count and snippet-highlight status.
 export async function fetchPage(billId, page, highlight = true) {
-  const res = await fetch(`/api/bills/${billId}/pages/${page}?highlight=${highlight}`, {
+  const res = await fetch(`${API_BASE}/api/bills/${billId}/pages/${page}?highlight=${highlight}`, {
     headers: { Authorization: `Bearer ${getToken()}` },
   })
   if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => null))?.detail)
@@ -56,7 +60,7 @@ export async function fetchPage(billId, page, highlight = true) {
 }
 
 export async function api(path, { method = 'GET', body, params } = {}) {
-  const url = new URL(`/api${path}`, window.location.origin)
+  const url = new URL(`${API_BASE}/api${path}`, window.location.origin)
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)

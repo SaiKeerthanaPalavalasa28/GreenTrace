@@ -108,11 +108,11 @@ def test_scanned_bill_without_ocr_fails_with_reason_and_batch_continues(api, mon
 
 def test_llm_failure_marks_bill_failed(api, fake_llm):
     client, headers, fid = api
-    fake_llm.responses = [ExtractionError("GEMINI_API_KEY is not configured on the server.")]
+    fake_llm.responses = [ExtractionError("Could not reach the extraction model.")]
     bill_id = upload(client, headers, fid, ("april.pdf", bill_pdf()))[0]["bill_id"]
     bill = client.get(f"/api/bills/{bill_id}", headers=headers).json()["bill"]
     assert bill["status"] == "failed"
-    assert bill["failure_reason"] == "GEMINI_API_KEY is not configured on the server."
+    assert bill["failure_reason"] == "Could not reach the extraction model."
 
 
 def test_unexpected_error_is_contained(api, fake_llm):

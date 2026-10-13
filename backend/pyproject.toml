@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -m 'not live'"
-markers = ["live: calls the real Gemini API (opt-in: pytest -m live)"]
+markers = ["live: calls a real Ollama model (opt-in: pytest -m live)"]
 filterwarnings = [
     # SQLite has no native DECIMAL; tests run on SQLite, production on Postgres.
     "ignore:Dialect sqlite\\+pysqlite does \\*not\\* support Decimal objects natively",

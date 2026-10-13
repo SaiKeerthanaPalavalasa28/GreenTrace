@@ -14,7 +14,8 @@ pdfplumber==0.11.7
 pypdfium2==4.30.0
 pytesseract==0.3.13
 pillow==11.2.1
-google-genai==2.24.0
+langchain-core==1.6.10
+langchain-ollama==1.1.0
 reportlab==4.4.1
 httpx==0.28.1
 matplotlib==3.10.3

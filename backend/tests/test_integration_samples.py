@@ -38,6 +38,10 @@ def perfect_reader():
         matches = [b for b in MANIFEST["bills"]
                    if b["expected_extraction"]["account_number"].lower() in text
                    and _normalize(b["expected_extraction"]["source_snippet"]) in text]
+        if not matches:  # OCR may lay a table out differently: fall back to account + printed quantity
+            matches = [b for b in MANIFEST["bills"] if b["requires_ocr"]
+                       and b["expected_extraction"]["account_number"].lower() in text
+                       and _normalize(b["expected_extraction"]["source_snippet"].rsplit(" ", 1)[1]) in text]
         assert len(matches) == 1, f"perfect reader: {len(matches)} sample bills match this document"
         return matches[0]["expected_extraction"]
 

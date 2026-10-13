@@ -1,9 +1,9 @@
-"""LIVE extraction accuracy against the real Gemini API. Opt-in (costs API calls):
+"""LIVE extraction accuracy against the real Ollama model. Opt-in (costs API calls):
 
-    set GEMINI_API_KEY=...   (or put it in backend/.env)
+    ollama serve   (and: ollama pull llama3.1:8b)
     .venv\\Scripts\\python -m pytest -m live -v
 
-Each text-layer sample bill goes through the real text extraction + Gemini + validation, and
+Each text-layer sample bill goes through the real text extraction + LLM + validation, and
 the extracted fields are compared with the values printed on the bill (samples/manifest.json).
 """
 
@@ -11,11 +11,12 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
+import httpx
 import pytest
 
 from app.calc.units import canonical_unit
 from app.config import Settings
-from app.pipeline.llm import GeminiExtractor, extract_structured
+from app.pipeline.llm import LangChainExtractor, extract_structured
 from app.pipeline.text import extract_text
 
 SAMPLES = Path(__file__).resolve().parents[2] / "samples"
@@ -27,14 +28,12 @@ pytestmark = pytest.mark.live
 
 @pytest.fixture(scope="module")
 def extractor():
-    # Real settings from the environment / backend/.env, not the test overrides.
-    import os
-
-    key = os.environ.get("GEMINI_API_KEY") or Settings(jwt_secret="x" * 32, _env_file=Path(__file__).parents[1] / ".env").gemini_api_key
-    if not key:
-        pytest.skip("GEMINI_API_KEY not set")
-    return GeminiExtractor(Settings(jwt_secret="x" * 32, gemini_api_key=key,
-                                    _env_file=Path(__file__).parents[1] / ".env"))
+    ex = LangChainExtractor(Settings(jwt_secret="x" * 32))
+    try:
+        httpx.get(ex.settings.llm_base_url, timeout=3)
+    except httpx.HTTPError:
+        pytest.skip(f"no Ollama server at {ex.settings.llm_base_url}")
+    return ex
 
 
 @pytest.mark.parametrize("bill", TEXT_BILLS, ids=[Path(b["file"]).stem for b in TEXT_BILLS])

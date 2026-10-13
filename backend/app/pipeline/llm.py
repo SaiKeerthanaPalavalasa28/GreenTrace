@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
-import httpx
 from pydantic import ValidationError
 
 from app.config import Settings, get_settings
@@ -106,48 +105,34 @@ class RateLimiter:
             time.sleep(slot - now)
 
 
-def _retry_after(e) -> float | None:
-    """Seconds from a google.rpc.RetryInfo detail, e.g. {'retryDelay': '18s'}."""
-    details = (getattr(e, "details", None) or {}).get("error", {}).get("details", [])
-    for d in details if isinstance(details, list) else []:
-        if isinstance(d, dict) and str(d.get("@type", "")).endswith("RetryInfo"):
-            try:
-                return float(str(d.get("retryDelay", "")).rstrip("s"))
-            except ValueError:
-                return None
-    return None
+class LangChainExtractor:
+    """LangChain chat model (a local Ollama server, so no API key) with JSON-schema-constrained
+    output. Transient connection errors are retried with backoff."""
 
+    MAX_ATTEMPTS = 4
 
-class GeminiExtractor:
-    """Gemini with JSON-schema-constrained output. Transient API errors are retried with backoff."""
-
-    TRANSIENT_STATUS = {429, 500, 502, 503, 504}
-    MAX_ATTEMPTS = 5
-    MAX_RETRY_WAIT = 60.0
-
-    def __init__(self, settings: Settings | None = None):
+    def __init__(self, settings: Settings | None = None, chat_model=None):
         self.settings = settings or get_settings()
-        self.model_name = self.settings.gemini_model
-        self._client = None
-        self._limiter = RateLimiter(self.settings.gemini_requests_per_minute)
+        self.model_name = self.settings.llm_model
+        self._chat_model = chat_model
 
-    def _get_client(self):
-        if not self.settings.gemini_api_key:
-            raise ExtractionError("GEMINI_API_KEY is not configured on the server. Set it, then reprocess the bill.")
-        if self._client is None:
-            from google import genai
-            from google.genai import types
+    def _get_chat_model(self):
+        if self._chat_model is None:
+            from langchain_ollama import ChatOllama
 
-            self._client = genai.Client(
-                api_key=self.settings.gemini_api_key,
-                http_options=types.HttpOptions(timeout=self.settings.gemini_timeout_seconds * 1000),
+            self._chat_model = ChatOllama(
+                model=self.settings.llm_model,
+                base_url=self.settings.llm_base_url,
+                temperature=0,
+                format=RESPONSE_JSON_SCHEMA,  # constrained decoding to the schema
+                num_ctx=self.settings.llm_context_tokens,
+                client_kwargs={"timeout": self.settings.llm_timeout_seconds},
             )
-        return self._client
+        return self._chat_model
 
     def extract(self, document_text: str, correction: str | None = None) -> str:
-        from google.genai import errors, types
+        from langchain_core.messages import HumanMessage, SystemMessage
 
-        client = self._get_client()
         if len(document_text) > self.settings.max_prompt_chars:
             # Never send a cut-off bill: the consumption figure could be in the missing part.
             raise ExtractionError(
@@ -160,58 +145,38 @@ class GeminiExtractor:
                 f"\n\nYour previous answer was rejected: {correction}\n"
                 "Return JSON that matches the schema exactly."
             )
-        config = types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            response_json_schema=RESPONSE_JSON_SCHEMA,
-            temperature=0,
-        )
+        messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)]
+        model = self._get_chat_model()
         delay = 2.0
         for attempt in range(self.MAX_ATTEMPTS):
             last = attempt == self.MAX_ATTEMPTS - 1
             try:
-                self._limiter.wait()
-                response = client.models.generate_content(model=self.model_name, contents=prompt, config=config)
-                if not response.text:
-                    raise ExtractionError("The extraction model returned an empty response (possibly blocked).")
-                return response.text
-            except errors.APIError as e:
-                retry_after = _retry_after(e) if e.code == 429 else None
-                if retry_after is not None and retry_after > self.MAX_RETRY_WAIT:
-                    # A daily quota: waiting a minute won't help, so fail now and say when it resets.
-                    raise ExtractionError(
-                        f"The Gemini API quota is used up; it resets in about {retry_after / 3600:.1f} h. "
-                        "Reprocess the bill after that, or upgrade the API plan (free-tier keys allow very few "
-                        "requests per day).") from e
-                if e.code in self.TRANSIENT_STATUS and not last:
-                    # Rate limits say how long to wait; honour that instead of guessing.
-                    wait = retry_after
-                    wait = min(wait + 1, self.MAX_RETRY_WAIT) if wait is not None else delay
-                    log.warning("Gemini %s, retrying in %.0fs", e.code, wait)
-                    time.sleep(wait)
-                    delay *= 2
-                    continue
-                if e.code == 429:
-                    raise ExtractionError(
-                        "The Gemini API quota is exhausted (HTTP 429). Lower GEMINI_REQUESTS_PER_MINUTE or upgrade "
-                        "the API plan, then reprocess the bill.") from e
-                if e.code in (401, 403):
-                    # 403 also covers project-level blocks ("Your project has been denied access"),
-                    # which no key change on our side fixes, so pass Google's message through.
-                    raise ExtractionError(f"The Gemini API refused the request (HTTP {e.code}): "
-                                          f"{(e.message or 'no detail')[:200]} Check GEMINI_API_KEY and the "
-                                          "Google AI Studio / Cloud project it belongs to.") from e
-                if e.code == 404:
-                    raise ExtractionError(f"Gemini model {self.model_name!r} was not found (check GEMINI_MODEL).") from e
-                raise ExtractionError(f"The extraction service failed (HTTP {e.code}). Try reprocessing later.") from e
-            except httpx.HTTPError as e:  # network errors, timeouts
-                if not last:
-                    log.warning("Gemini network error %r, retrying in %.0fs", e, delay)
+                text = model.invoke(messages).content
+            except Exception as e:
+                kind = _classify(e)
+                if kind == "transient" and not last:
+                    log.warning("LLM server error %r, retrying in %.0fs", e, delay)
                     time.sleep(delay)
                     delay *= 2
                     continue
-                raise ExtractionError("Could not reach the extraction service (network error or timeout).") from e
+                if kind == "model_missing":
+                    raise ExtractionError(
+                        f"The model {self.model_name!r} is not available on the LLM server. "
+                        f"Run: ollama pull {self.model_name}") from e
+                raise ExtractionError(
+                    f"Could not reach the extraction model at {self.settings.llm_base_url} "
+                    "(is the Ollama server running?). Reprocess the bill once it is up.") from e
+            if not isinstance(text, str) or not text.strip():
+                raise ExtractionError("The extraction model returned an empty response.")
+            return text
         raise ExtractionError("The extraction service is unavailable. Try reprocessing later.")
+
+
+def _classify(e: Exception) -> str:
+    status = getattr(e, "status_code", None)
+    if status == 404:
+        return "model_missing"
+    return "transient"
 
 
 _extractor: Extractor | None = None
@@ -220,5 +185,5 @@ _extractor: Extractor | None = None
 def get_extractor() -> Extractor:
     global _extractor
     if _extractor is None:
-        _extractor = GeminiExtractor()
+        _extractor = LangChainExtractor()
     return _extractor

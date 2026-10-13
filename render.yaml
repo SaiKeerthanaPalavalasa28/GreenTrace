@@ -1,0 +1,37 @@
+# Render Blueprint: Postgres + the FastAPI backend (native Python, no Docker).
+# After the first deploy, set CORS_ORIGINS (your Vercel URL) and LLM_BASE_URL in the dashboard.
+databases:
+  - name: greentrace-db
+    plan: free
+    databaseName: greentrace
+
+services:
+  - type: web
+    name: greentrace-api
+    runtime: python
+    rootDir: backend
+    plan: starter            # needs a persistent disk; use free + STORAGE_BACKEND=s3 if you prefer
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    disk:
+      name: storage
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: DATABASE_URL
+        fromDatabase:
+          name: greentrace-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: STORAGE_DIR
+        value: /var/data
+      - key: CORS_ORIGINS
+        value: '["https://YOUR-APP.vercel.app"]'
+      - key: LLM_BASE_URL
+        sync: false          # URL of an Ollama server, e.g. https://my-ollama.example.com
+      - key: LLM_MODEL
+        value: llama3.1:8b

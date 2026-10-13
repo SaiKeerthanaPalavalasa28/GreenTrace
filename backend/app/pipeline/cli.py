@@ -15,12 +15,12 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.pipeline.errors import PipelineError
-from app.pipeline.llm import GeminiExtractor, extract_structured
+from app.pipeline.llm import LangChainExtractor, extract_structured
 from app.pipeline.text import extract_text
 from app.pipeline.validate import ValidationContext, validate
 
 
-def run(path: Path, text_only: bool, extractor: GeminiExtractor | None) -> bool:
+def run(path: Path, text_only: bool, extractor: LangChainExtractor | None) -> bool:
     print(f"\n### {path.name}")
     try:
         pdf_text = extract_text(path.read_bytes())
@@ -58,7 +58,7 @@ def main() -> int:
     parser.add_argument("pdfs", nargs="+", type=Path)
     parser.add_argument("--text-only", action="store_true")
     args = parser.parse_args()
-    extractor = None if args.text_only else GeminiExtractor()
+    extractor = None if args.text_only else LangChainExtractor()
     results = [run(p, args.text_only, extractor) for p in args.pdfs]
     print(f"\n{sum(results)}/{len(results)} processed")
     return 0 if all(results) else 1
