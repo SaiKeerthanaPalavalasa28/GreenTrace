@@ -1,0 +1,309 @@
+{
+  "note": "Synthetic bills from fictional suppliers. expected_extraction = values printed on each bill; expected_kgco2e = hand-worked result using the seeded emission factors (see expected_working).",
+  "organizations": {
+    "IN": {
+      "region_by_facility": {
+        "Pune Plant": "IN",
+        "Chennai Plant": "IN"
+      },
+      "fiscal_year_start_month": 4,
+      "framework": "BRSR"
+    },
+    "UK": {
+      "region_by_facility": {
+        "London Office": "UK"
+      },
+      "fiscal_year_start_month": 1,
+      "framework": "SECR"
+    },
+    "US": {
+      "region_by_facility": {
+        "San Francisco Lab": "US-CAMX"
+      },
+      "fiscal_year_start_month": 1,
+      "framework": "EPA"
+    }
+  },
+  "bills": [
+    {
+      "file": "bills/in-pune-electricity-2024-01.pdf",
+      "org": "IN",
+      "facility": "Pune Plant",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "electricity",
+        "provider_name": "Sahyadri Power Distribution Ltd (fictional)",
+        "account_number": "PN-4471-0098-2210",
+        "billing_period_start": "2024-01-01",
+        "billing_period_end": "2024-01-31",
+        "quantity": "14250",
+        "unit": "kWh",
+        "meter_readings": {
+          "previous": "458210",
+          "current": "472460",
+          "multiplier": "1"
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Units Consumed (kWh) 14,250",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "10359.750000",
+      "expected_working": "14,250 kWh = 14.25 MWh x 727 kg CO2/MWh (CEA FY2023-24)"
+    },
+    {
+      "file": "bills/in-pune-electricity-2024-03-cross-fy.pdf",
+      "org": "IN",
+      "facility": "Pune Plant",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "electricity",
+        "provider_name": "Sahyadri Power Distribution Ltd (fictional)",
+        "account_number": "PN-4471-0098-2210",
+        "billing_period_start": "2024-03-16",
+        "billing_period_end": "2024-04-15",
+        "quantity": "12400",
+        "unit": "kWh",
+        "meter_readings": {
+          "previous": "486710",
+          "current": "499110",
+          "multiplier": "1"
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Units Consumed (kWh) 12,400",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "8912.800000",
+      "expected_working": "31 days across the 1 April financial-year boundary: 16/31 x 12,400 = 6,400 kWh x 0.727 = 4,652.8 (FY2023-24) + 15/31 x 12,400 = 6,000 kWh x 0.710 = 4,260.0 (FY2024-25)"
+    },
+    {
+      "file": "bills/in-chennai-electricity-2024-02-meter-readings.pdf",
+      "org": "IN",
+      "facility": "Chennai Plant",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "electricity",
+        "provider_name": "Coromandel Electricity Board (fictional)",
+        "account_number": "CH-07-112-90341",
+        "billing_period_start": "2024-02-01",
+        "billing_period_end": "2024-02-29",
+        "quantity": null,
+        "unit": "kWh",
+        "meter_readings": {
+          "previous": "182450",
+          "current": "183410",
+          "multiplier": "20"
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Previous Reading (kWh) 182450\nCurrent Reading (kWh) 183410\nMultiplying Factor (MF) 20",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "13958.400000",
+      "expected_working": "No total printed: (183,410 - 182,450) x MF 20 = 19,200 kWh = 19.2 MWh x 727 (CEA FY2023-24)"
+    },
+    {
+      "file": "bills/in-chennai-gas-2024-02-mmbtu.pdf",
+      "org": "IN",
+      "facility": "Chennai Plant",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "natural_gas",
+        "provider_name": "Bay of Bengal Gas Transmission Ltd (fictional)",
+        "account_number": "GTX-CHN-000418",
+        "billing_period_start": "2024-02-01",
+        "billing_period_end": "2024-02-29",
+        "quantity": "650",
+        "unit": "MMBTU",
+        "meter_readings": {
+          "previous": null,
+          "current": null,
+          "multiplier": null
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Gas Quantity Supplied (MMBTU) 650.000",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "38509.987019",
+      "expected_working": "650 MMBtu x 0.00105505585262 TJ/MMBtu = 0.685786304203 TJ x 56,154.5 kg CO2e/TJ (IPCC 2006)"
+    },
+    {
+      "file": "bills/in-pune-electricity-2024-02-scanned.pdf",
+      "org": "IN",
+      "facility": "Pune Plant",
+      "requires_ocr": true,
+      "expected_extraction": {
+        "utility_type": "electricity",
+        "provider_name": "Sahyadri Power Distribution Ltd (fictional)",
+        "account_number": "PN-4471-0098-2210",
+        "billing_period_start": "2024-02-01",
+        "billing_period_end": "2024-02-29",
+        "quantity": "13100",
+        "unit": "kWh",
+        "meter_readings": {
+          "previous": "472460",
+          "current": "485560",
+          "multiplier": "1"
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Units Consumed (kWh) 13,100",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "9523.700000",
+      "expected_working": "13,100 kWh = 13.1 MWh x 727 (CEA FY2023-24). Image-only PDF: needs OCR."
+    },
+    {
+      "file": "bills/in-chennai-electricity-2023-12-two-pages.pdf",
+      "org": "IN",
+      "facility": "Chennai Plant",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "electricity",
+        "provider_name": "Coromandel Electricity Board (fictional)",
+        "account_number": "CH-07-112-90341",
+        "billing_period_start": "2023-12-01",
+        "billing_period_end": "2023-12-31",
+        "quantity": "15800",
+        "unit": "kWh",
+        "meter_readings": {
+          "previous": "181660",
+          "current": "182450",
+          "multiplier": "20"
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 2,
+        "source_snippet": "Net Energy Consumed (kWh) 15,800",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "11486.600000",
+      "expected_working": "15,800 kWh = 15.8 MWh x 727 (CEA FY2023-24); consumption is on page 2"
+    },
+    {
+      "file": "bills/uk-london-electricity-2025-12-cross-year.pdf",
+      "org": "UK",
+      "facility": "London Office",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "electricity",
+        "provider_name": "Thames Valley Energy (fictional)",
+        "account_number": "TVE 8812 4471 09",
+        "billing_period_start": "2025-12-15",
+        "billing_period_end": "2026-01-14",
+        "quantity": "3100",
+        "unit": "kWh",
+        "meter_readings": {
+          "previous": "50120",
+          "current": "53220",
+          "multiplier": "1"
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Electricity used 3,100 kWh",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "484.244000",
+      "expected_working": "Crosses the calendar year: 17/31 x 3,100 = 1,700 kWh x 0.177 (DESNZ 2025) = 300.9 + 14/31 x 3,100 = 1,400 kWh x 0.13096 (DESNZ 2026) = 183.344"
+    },
+    {
+      "file": "bills/uk-london-gas-2025-03.pdf",
+      "org": "UK",
+      "facility": "London Office",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "natural_gas",
+        "provider_name": "Thames Valley Energy (fictional)",
+        "account_number": "TVE 8812 5530 41",
+        "billing_period_start": "2025-03-01",
+        "billing_period_end": "2025-03-31",
+        "quantity": "18500",
+        "unit": "kWh",
+        "meter_readings": {
+          "previous": null,
+          "current": null,
+          "multiplier": null
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Gas used 18,500 kWh",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "3384.760000",
+      "expected_working": "18,500 kWh (gross CV) x 0.18296 kg CO2e/kWh (DESNZ 2025 natural gas)"
+    },
+    {
+      "file": "bills/us-sf-electricity-2024-06.pdf",
+      "org": "US",
+      "facility": "San Francisco Lab",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "electricity",
+        "provider_name": "Golden Gate Power & Light (fictional)",
+        "account_number": "4410-228-917",
+        "billing_period_start": "2024-06-01",
+        "billing_period_end": "2024-06-30",
+        "quantity": "42000",
+        "unit": "kWh",
+        "meter_readings": {
+          "previous": null,
+          "current": null,
+          "multiplier": null
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Total Electricity Usage 42,000 kWh",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "8191.878202",
+      "expected_working": "42,000 kWh = 42 MWh x 430.0 lb CO2e/MWh x 0.45359237 kg/lb (eGRID2023 CAMX)"
+    },
+    {
+      "file": "bills/us-sf-gas-2024-11-therms.pdf",
+      "org": "US",
+      "facility": "San Francisco Lab",
+      "requires_ocr": false,
+      "expected_extraction": {
+        "utility_type": "natural_gas",
+        "provider_name": "Golden Gate Power & Light (fictional)",
+        "account_number": "4410-228-918",
+        "billing_period_start": "2024-11-01",
+        "billing_period_end": "2024-11-30",
+        "quantity": "1200",
+        "unit": "therms",
+        "meter_readings": {
+          "previous": null,
+          "current": null,
+          "multiplier": null
+        },
+        "read_type": "actual",
+        "multiple_meters_or_line_items": false,
+        "page_number": 1,
+        "source_snippet": "Total Gas Usage 1,200 Therms",
+        "confidence": 0.97,
+        "notes": null
+      },
+      "expected_kgco2e": "6373.740000",
+      "expected_working": "1,200 therms = 120 MMBtu x 53.1145 kg CO2e/MMBtu (EPA Hub; parent region US)"
+    }
+  ]
+}

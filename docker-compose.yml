@@ -1,0 +1,48 @@
+# Local stack: Postgres + API + frontend.
+#   cp backend/.env.example backend/.env    # set JWT_SECRET and GEMINI_API_KEY
+#   docker compose up --build
+#   open http://localhost:8080
+# The API migrates the database and loads emission factors on start.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: greentrace
+      POSTGRES_PASSWORD: greentrace   # local only; use a managed database (e.g. Supabase) in production
+      POSTGRES_DB: greentrace
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U greentrace -d greentrace"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      # Override backend/.env so the container always uses the compose database and volume.
+      DATABASE_URL: postgresql://greentrace:greentrace@db:5432/greentrace
+      STORAGE_BACKEND: local
+      STORAGE_DIR: /app/storage
+      CORS_ORIGINS: '["http://localhost:8080"]'
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  storage:

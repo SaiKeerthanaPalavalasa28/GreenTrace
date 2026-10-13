@@ -1,0 +1,668 @@
+# GreenTrace emission factor seed data.
+#
+# Rules for this file:
+#   * Every value is copied from the official publication cited in its row.
+#     Nothing here is estimated or invented.
+#   * `published` holds the value(s) EXACTLY as printed by the source. The loader
+#     (app/seed.py) derives kgco2e_per_unit from them; the derivation is stored with the row.
+#   * `per_unit` is the denominator as published; the calculation engine converts bill
+#     quantities to it (same dimension only, never m3 -> energy).
+#   * valid_from / valid_to define which billing dates a factor applies to. A bill date
+#     with no matching factor fails loudly; extend coverage by adding a new factor or
+#     version, never by editing logic.
+#   * Loading is idempotent on (key, version). To correct a value, add the same key with
+#     version + 1; the old version is kept and marked superseded.
+#
+# Seeded on 2026-10-13. Sources were read from official PDFs/spreadsheets on that date
+# unless a row says otherwise.
+
+gwp_sets:
+  AR5:
+    # TODO: verify against latest published edition
+    source_name: "IPCC Fifth Assessment Report (2013), 100-year GWP, as tabulated in US EPA GHG Emission Factors Hub (Jan 2025), Table 11"
+    source_url: "https://www.epa.gov/system/files/documents/2025-01/ghg-emission-factors-hub-2025.pdf"
+    values: {CO2: "1", CH4: "28", N2O: "265"}
+
+factors:
+
+  # ---------------------------------------------------------------- India: grid electricity
+  # CEA weighted average emission factor of the Indian grid, including renewables and
+  # captive injection, adjusted for cross-border transfers. CO2 only (CEA does not publish
+  # CH4/N2O), so ghg_basis = CO2. Indian fiscal year: 1 April - 31 March.
+
+  # TODO: verify against latest published edition
+  - key: IN-CEA-GRID-FY2022-23
+    version: 1
+    utility_type: electricity
+    region: IN
+    per_unit: MWh
+    published:
+      - {gas: CO2, value: "0.716", mass_unit: t}
+    source_name: "CEA CO2 Baseline Database for the Indian Power Sector, User Guide Version 20.0 (Dec 2024), Annexure-I: weighted average emission factor of grid electricity including RE, FY 2022-23 (revised in v20)"
+    source_url: "https://cea.nic.in/cdm-co2-baseline-database/?lang=en"
+    publication_year: 2024
+    valid_from: 2022-04-01
+    valid_to: 2023-03-31
+    notes: "Value read from a copy of the v20 User Guide (https://static-cdn.publive.online/saur-energy/media/pdf_files/2025/01user_guide_version_20.0.pdf); cea.nic.in direct PDF links required login at seeding time."
+
+  # TODO: verify against latest published edition
+  - key: IN-CEA-GRID-FY2023-24
+    version: 1
+    utility_type: electricity
+    region: IN
+    per_unit: MWh
+    published:
+      - {gas: CO2, value: "0.727", mass_unit: t}
+    source_name: "CEA CO2 Baseline Database for the Indian Power Sector, User Guide Version 20.0 (Dec 2024), Table S: weighted average emission factor, FY 2023-24"
+    source_url: "https://cea.nic.in/cdm-co2-baseline-database/?lang=en"
+    publication_year: 2024
+    valid_from: 2023-04-01
+    valid_to: 2024-03-31
+    notes: "Value read from a copy of the v20 User Guide (https://static-cdn.publive.online/saur-energy/media/pdf_files/2025/01user_guide_version_20.0.pdf); cea.nic.in direct PDF links required login at seeding time."
+
+  # TODO: verify against latest published edition
+  # NOT VERIFIED FROM THE PDF: the v21 guide was behind a login wall at seeding time. The value
+  # comes from a search-engine extract of the official v21 PDF and two secondary sites (one of
+  # which reports 0.7117 excluding imports). Confirm Table S of the v21 guide before reporting.
+  - key: IN-CEA-GRID-FY2024-25
+    version: 1
+    utility_type: electricity
+    region: IN
+    per_unit: MWh
+    published:
+      - {gas: CO2, value: "0.710", mass_unit: t}
+    source_name: "CEA CO2 Baseline Database for the Indian Power Sector, User Guide Version 21.0 (Dec 2025), Table S: weighted average emission factor, FY 2024-25"
+    source_url: "https://cea.nic.in/wp-content/uploads/baseline/2025/12/User_Guide_V_21.0.pdf"
+    publication_year: 2025
+    valid_from: 2024-04-01
+    valid_to: 2025-03-31
+    notes: "UNVERIFIED against the source PDF (login wall at seeding time). See comment in seed file."
+
+  # ---------------------------------------------------------------- India: natural gas
+  # No Indian government factor for natural gas combustion; IPCC 2006 defaults are the
+  # standard choice. Table 2.3 = manufacturing industries & construction. For offices /
+  # commercial sites Table 2.4 gives CH4 = 5 kg/TJ instead of 1. Fuel chemistry does not
+  # change by year, so the window is open-ended.
+
+  # TODO: verify against latest published edition
+  - key: IN-IPCC2006-NATGAS-MFG
+    version: 1
+    utility_type: natural_gas
+    region: IN
+    per_unit: TJ
+    published:
+      - {gas: CO2, value: "56100", mass_unit: kg}
+      - {gas: CH4, value: "1", mass_unit: kg}
+      - {gas: N2O, value: "0.1", mass_unit: kg}
+    gwp_set: AR5
+    source_name: "2006 IPCC Guidelines for National Greenhouse Gas Inventories, Vol. 2 Energy, Ch. 2 Stationary Combustion, Table 2.3 (manufacturing industries and construction), natural gas default factors"
+    source_url: "https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/2_Volume2/V2_2_Ch2_Stationary_Combustion.pdf"
+    publication_year: 2006
+    valid_from: 2006-01-01
+    valid_to: null
+    notes: "Energy basis is net calorific value (NCV) per IPCC convention. Indian PNG bills in SCM need the supplier's stated calorific value to convert to energy."
+
+  # ---------------------------------------------------------------- UK: DESNZ
+  # UK Government GHG Conversion Factors for Company Reporting. Each edition is for
+  # reporting activity in its calendar year. Values below are the pre-aggregated
+  # "kg CO2e" rows (AR5 GWP) from the official flat-format spreadsheets.
+
+  # TODO: verify against latest published edition
+  - key: UK-DESNZ-ELEC-2025
+    version: 1
+    utility_type: electricity
+    region: UK
+    per_unit: kWh
+    published:
+      - {gas: CO2e, value: "0.177", mass_unit: kg}
+    source_name: "UK DESNZ Greenhouse gas reporting: conversion factors 2025, flat file, ID 7_400_4000_5_1 (Scope 2, UK electricity, electricity generated)"
+    source_url: "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2025"
+    publication_year: 2025
+    valid_from: 2025-01-01
+    valid_to: 2025-12-31
+    notes: "Excludes T&D losses and well-to-tank (Scope 3)."
+
+  # TODO: verify against latest published edition
+  - key: UK-DESNZ-ELEC-2026
+    version: 1
+    utility_type: electricity
+    region: UK
+    per_unit: kWh
+    published:
+      - {gas: CO2e, value: "0.13096", mass_unit: kg}
+    source_name: "UK DESNZ Greenhouse gas reporting: conversion factors 2026, flat file (revised), ID 7_400_4000_5_1 (Scope 2, UK electricity, electricity generated)"
+    source_url: "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026"
+    publication_year: 2026
+    valid_from: 2026-01-01
+    valid_to: 2026-12-31
+    notes: "Excludes T&D losses and well-to-tank (Scope 3). 2026 edition changed methodology (data lag reduced from two years to one)."
+
+  # TODO: verify against latest published edition
+  - key: UK-DESNZ-NATGAS-KWH-2025
+    version: 1
+    utility_type: natural_gas
+    region: UK
+    per_unit: kWh
+    published:
+      - {gas: CO2e, value: "0.18296", mass_unit: kg}
+    source_name: "UK DESNZ Greenhouse gas reporting: conversion factors 2025, flat file, ID 1_100_1004_6_1 (Scope 1, natural gas, kWh Gross CV)"
+    source_url: "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2025"
+    publication_year: 2025
+    valid_from: 2025-01-01
+    valid_to: 2025-12-31
+    notes: "kWh on a gross calorific value basis, as on UK gas bills."
+
+  # TODO: verify against latest published edition
+  - key: UK-DESNZ-NATGAS-M3-2025
+    version: 1
+    utility_type: natural_gas
+    region: UK
+    per_unit: m3
+    published:
+      - {gas: CO2e, value: "2.06672", mass_unit: kg}
+    source_name: "UK DESNZ Greenhouse gas reporting: conversion factors 2025, flat file, ID 1_100_1004_1_1 (Scope 1, natural gas, cubic metres)"
+    source_url: "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2025"
+    publication_year: 2025
+    valid_from: 2025-01-01
+    valid_to: 2025-12-31
+    notes: ""
+
+  # TODO: verify against latest published edition
+  - key: UK-DESNZ-NATGAS-KWH-2026
+    version: 1
+    utility_type: natural_gas
+    region: UK
+    per_unit: kWh
+    published:
+      - {gas: CO2e, value: "0.18231", mass_unit: kg}
+    source_name: "UK DESNZ Greenhouse gas reporting: conversion factors 2026, flat file (revised), ID 1_100_1004_6_1 (Scope 1, natural gas, kWh Gross CV)"
+    source_url: "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026"
+    publication_year: 2026
+    valid_from: 2026-01-01
+    valid_to: 2026-12-31
+    notes: "kWh on a gross calorific value basis, as on UK gas bills."
+
+  # TODO: verify against latest published edition
+  - key: UK-DESNZ-NATGAS-M3-2026
+    version: 1
+    utility_type: natural_gas
+    region: UK
+    per_unit: m3
+    published:
+      - {gas: CO2e, value: "2.02633", mass_unit: kg}
+    source_name: "UK DESNZ Greenhouse gas reporting: conversion factors 2026, flat file (revised), ID 1_100_1004_1_1 (Scope 1, natural gas, cubic metres)"
+    source_url: "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026"
+    publication_year: 2026
+    valid_from: 2026-01-01
+    valid_to: 2026-12-31
+    notes: ""
+
+  # ---------------------------------------------------------------- US: natural gas
+  # EPA GHG Emission Factors Hub (Jan 2025), Table 1 Stationary Combustion. Values are
+  # unchanged from the 2022 edition. Window starts with the 2024 inventory year the 2025
+  # Hub was published for and is open-ended (fuel chemistry factor).
+
+  # TODO: verify against latest published edition
+  - key: US-EPA-HUB-NATGAS-MMBTU
+    version: 1
+    utility_type: natural_gas
+    region: US
+    per_unit: MMBtu
+    published:
+      - {gas: CO2, value: "53.06", mass_unit: kg}
+      - {gas: CH4, value: "1.0", mass_unit: g}
+      - {gas: N2O, value: "0.10", mass_unit: g}
+    gwp_set: AR5
+    source_name: "US EPA GHG Emission Factors Hub (last modified 15 Jan 2025), Table 1 Stationary Combustion, natural gas, per mmBtu (HHV)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-01/ghg-emission-factors-hub-2025.pdf"
+    publication_year: 2025
+    valid_from: 2024-01-01
+    valid_to: null
+    notes: "Higher heating value basis."
+
+  # TODO: verify against latest published edition
+  - key: US-EPA-HUB-NATGAS-SCF
+    version: 1
+    utility_type: natural_gas
+    region: US
+    per_unit: scf
+    published:
+      - {gas: CO2, value: "0.05444", mass_unit: kg}
+      - {gas: CH4, value: "0.00103", mass_unit: g}
+      - {gas: N2O, value: "0.00010", mass_unit: g}
+    gwp_set: AR5
+    source_name: "US EPA GHG Emission Factors Hub (last modified 15 Jan 2025), Table 1 Stationary Combustion, natural gas, per scf"
+    source_url: "https://www.epa.gov/system/files/documents/2025-01/ghg-emission-factors-hub-2025.pdf"
+    publication_year: 2025
+    valid_from: 2024-01-01
+    valid_to: null
+    notes: "Assumes the Hub's default heat content of 0.001026 mmBtu/scf."
+
+  # ---------------------------------------------------------------- US: grid electricity (eGRID2023)
+  # EPA eGRID2023 summary tables (revision 2, created 27 Mar 2025), Table 1 subregion
+  # TOTAL output emission rates, CO2e column, lb/MWh. Total output rates are the ones
+  # EPA recommends for location-based Scope 2. Region code = "US-" + eGRID acronym;
+  # facilities outside a known subregion can use "US" (national average).
+  # Note: the EPA Hub (Jan 2025) Table 6 prints the US average as 771.5 lb CO2/MWh, from
+  # eGRID2023 revision 1; revision 2 below prints 767.2 lb CO2 / 770.9 lb CO2e per MWh.
+  # Window: data year 2023 plus 2024, the inventory year the Jan 2025 Hub applies eGRID2023 to.
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-AKGD
+    version: 1
+    utility_type: electricity
+    region: US-AKGD
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "905.1", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, AKGD (ASCC Alaska Grid)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 899.6, CH4 0.086, N2O 0.012 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-AKMS
+    version: 1
+    utility_type: electricity
+    region: US-AKMS
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "522.4", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, AKMS (ASCC Miscellaneous)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 520.5, CH4 0.026, N2O 0.004 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-AZNM
+    version: 1
+    utility_type: electricity
+    region: US-AZNM
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "706.2", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, AZNM (WECC Southwest)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 703.7, CH4 0.039, N2O 0.005 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-CAMX
+    version: 1
+    utility_type: electricity
+    region: US-CAMX
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "430.0", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, CAMX (WECC California)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 428.5, CH4 0.025, N2O 0.003 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-ERCT
+    version: 1
+    utility_type: electricity
+    region: US-ERCT
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "736.6", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, ERCT (ERCOT All)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 733.9, CH4 0.043, N2O 0.006 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-FRCC
+    version: 1
+    utility_type: electricity
+    region: US-FRCC
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "784.8", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, FRCC (FRCC All)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 782.3, CH4 0.041, N2O 0.005 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-HIMS
+    version: 1
+    utility_type: electricity
+    region: US-HIMS
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "1133.3", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, HIMS (HICC Miscellaneous)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 1,123.4, CH4 0.146, N2O 0.022 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-HIOA
+    version: 1
+    utility_type: electricity
+    region: US-HIOA
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "1498.9", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, HIOA (HICC Oahu)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 1,489.5, CH4 0.134, N2O 0.021 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-MROE
+    version: 1
+    utility_type: electricity
+    region: US-MROE
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "1405.0", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, MROE (MRO East)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 1,397.3, CH4 0.116, N2O 0.017 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-MROW
+    version: 1
+    utility_type: electricity
+    region: US-MROW
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "926.6", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, MROW (MRO West)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 920.1, CH4 0.097, N2O 0.014 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-NEWE
+    version: 1
+    utility_type: electricity
+    region: US-NEWE
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "543.2", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, NEWE (NPCC New England)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 539.3, CH4 0.063, N2O 0.008 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-NWPP
+    version: 1
+    utility_type: electricity
+    region: US-NWPP
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "635.3", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, NWPP (WECC Northwest)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 631.7, CH4 0.054, N2O 0.008 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-NYCW
+    version: 1
+    utility_type: electricity
+    region: US-NYCW
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "865.7", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, NYCW (NPCC NYC/Westchester)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 864.5, CH4 0.022, N2O 0.002 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-NYLI
+    version: 1
+    utility_type: electricity
+    region: US-NYLI
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "1189.3", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, NYLI (NPCC Long Island)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 1,180.7, CH4 0.140, N2O 0.018 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-NYUP
+    version: 1
+    utility_type: electricity
+    region: US-NYUP
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "242.8", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, NYUP (NPCC Upstate NY)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 242.1, CH4 0.011, N2O 0.001 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-PRMS
+    version: 1
+    utility_type: electricity
+    region: US-PRMS
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "1548.5", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, PRMS (Puerto Rico Miscellaneous)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 1,543.1, CH4 0.077, N2O 0.012 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-RFCE
+    version: 1
+    utility_type: electricity
+    region: US-RFCE
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "599.2", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, RFCE (RFC East)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 596.9, CH4 0.036, N2O 0.005 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-RFCM
+    version: 1
+    utility_type: electricity
+    region: US-RFCM
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "976.0", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, RFCM (RFC Michigan)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 970.6, CH4 0.082, N2O 0.012 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-RFCW
+    version: 1
+    utility_type: electricity
+    region: US-RFCW
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "916.1", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, RFCW (RFC West)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 911.4, CH4 0.071, N2O 0.010 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-RMPA
+    version: 1
+    utility_type: electricity
+    region: US-RMPA
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "1042.5", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, RMPA (WECC Rockies)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 1,036.6, CH4 0.090, N2O 0.013 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-SPNO
+    version: 1
+    utility_type: electricity
+    region: US-SPNO
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "867.7", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, SPNO (SPP North)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 862.0, CH4 0.087, N2O 0.012 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-SPSO
+    version: 1
+    utility_type: electricity
+    region: US-SPSO
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "875.6", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, SPSO (SPP South)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 872.0, CH4 0.054, N2O 0.008 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-SRMV
+    version: 1
+    utility_type: electricity
+    region: US-SRMV
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "741.7", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, SRMV (SERC Mississippi Valley)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 739.7, CH4 0.032, N2O 0.004 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-SRMW
+    version: 1
+    utility_type: electricity
+    region: US-SRMW
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "1248.6", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, SRMW (SERC Midwest)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 1,239.8, CH4 0.132, N2O 0.019 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-SRSO
+    version: 1
+    utility_type: electricity
+    region: US-SRSO
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "846.0", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, SRSO (SERC South)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 842.3, CH4 0.056, N2O 0.008 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-SRTV
+    version: 1
+    utility_type: electricity
+    region: US-SRTV
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "903.3", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, SRTV (SERC Tennessee Valley)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 898.1, CH4 0.079, N2O 0.011 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-SRVC
+    version: 1
+    utility_type: electricity
+    region: US-SRVC
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "596.3", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, SRVC (SERC Virginia/Carolina)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 593.4, CH4 0.045, N2O 0.006 lb/MWh. Excludes grid gross loss."
+
+  # TODO: verify against latest published edition
+  - key: US-EGRID2023-USAVG
+    version: 1
+    utility_type: electricity
+    region: US
+    per_unit: MWh
+    published:
+      - {gas: CO2e, value: "770.9", mass_unit: lb}
+    source_name: "US EPA eGRID2023 Summary Tables rev. 2, Table 1 Subregion Output Emission Rates, total output CO2e rate, U.S. (national average)"
+    source_url: "https://www.epa.gov/system/files/documents/2025-06/summary_tables_rev2.pdf"
+    publication_year: 2025
+    valid_from: 2023-01-01
+    valid_to: 2024-12-31
+    notes: "Same table prints CO2 767.2, CH4 0.057, N2O 0.008 lb/MWh. Excludes grid gross loss."
