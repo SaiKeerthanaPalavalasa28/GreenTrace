@@ -2,13 +2,15 @@
 // references/palette.md) in fixed order; validated with scripts/validate_palette.js
 // (light mode, adjacent pairs). Colors follow the ENTITY: Scope 1 is always slot 1 and
 // Scope 2 always slot 2, in every chart, regardless of which has the larger value.
-export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a'] // first three slots: validated all-pairs (donut)
+// Brand-matched: Scope 1 (gas combustion) = ember, Scope 2 (grid electricity) = forest green,
+// third slot = deep lake blue. Hue AND lightness differ so they stay apart for colour-blind viewers.
+export const SERIES = ['#d9622b', '#1f7549', '#2f6f95']
 export const OTHER = '#c3c2b7' // neutral for the folded "Other" slice - not a categorical hue
 export const SCOPE_COLOR = { 1: SERIES[0], 2: SERIES[1] }
 
-export const SURFACE = '#ffffff' // card surface; used for the 2px gap between touching marks
-export const INK = { primary: '#0b0b0b', secondary: '#52514e', muted: '#898781' }
-export const GRID = '#e1e0d9'
+export const SURFACE = '#fbfcf8' // card surface; used for the 2px gap between touching marks
+export const INK = { primary: '#1c1b18', secondary: '#5c5a51', muted: '#79776c' }
+export const GRID = '#e1dfd6'
 export const AXIS = '#c3c2b7'
 export const STATUS = { warning: '#fab219', critical: '#d03b3b', good: '#0ca30c' }
 

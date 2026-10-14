@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth'
-import { Button, Card, ErrorBox, inputClass } from '../components/ui'
+import { Button, Card, ErrorBox, PageHeader, inputClass, linkButtonClass } from '../components/ui'
 import { StatusBadge, TERMINAL, formatQty } from '../components/status'
 
 const STATUSES = ['uploaded', 'processing', 'needs_review', 'approved', 'rejected', 'failed']
@@ -46,13 +46,10 @@ export default function BillsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Bills</h1>
-        <div className="flex gap-2">
-          {isAdmin && <Button variant="secondary" onClick={recalculate}>Recalculate approved bills</Button>}
-          <Link to="/upload" className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800">Upload bills</Link>
-        </div>
-      </div>
+      <PageHeader title="Bills" subtitle="Every uploaded bill as a card. Open one to see where each number was read from.">
+        {isAdmin && <Button variant="secondary" onClick={recalculate}>Recalculate approved bills</Button>}
+        <Link to="/upload" className={linkButtonClass}>Upload bills</Link>
+      </PageHeader>
       <ErrorBox error={error} />
       {recalc && (
         <p className="text-sm text-slate-600">
@@ -60,7 +57,7 @@ export default function BillsPage() {
         </p>
       )}
       {calcErrors > 0 && (
-        <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-800 backdrop-blur">
           {calcErrors} approved bill{calcErrors === 1 ? '' : 's'} could not be calculated and {calcErrors === 1 ? 'is' : 'are'} excluded from totals (usually a missing emission factor for the billing period).
         </div>
       )}
@@ -82,38 +79,36 @@ export default function BillsPage() {
         {bills.length === 0 ? (
           <p className="text-sm text-slate-500">No bills yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-slate-500">
-                <tr>
-                  <th className="py-2 pr-4 font-medium">File</th>
-                  <th className="py-2 pr-4 font-medium">Facility</th>
-                  <th className="py-2 pr-4 font-medium">Utility</th>
-                  <th className="py-2 pr-4 font-medium">Period</th>
-                  <th className="py-2 pr-4 text-right font-medium">Quantity</th>
-                  <th className="py-2 pr-4 text-right font-medium">tCO₂e</th>
-                  <th className="py-2 pr-4 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {bills.map((b) => (
-                  <tr key={b.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/bills/${b.id}`)}>
-                    <td className="max-w-xs truncate py-2 pr-4 font-medium">{b.original_filename}</td>
-                    <td className="py-2 pr-4">{b.facility_name}</td>
-                    <td className="py-2 pr-4">{b.utility_type?.replace('_', ' ') || '—'}</td>
-                    <td className="whitespace-nowrap py-2 pr-4 text-xs">{b.billing_period_start ? `${b.billing_period_start} → ${b.billing_period_end ?? '?'}` : '—'}</td>
-                    <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums">{b.quantity != null ? `${formatQty(b.quantity)} ${b.unit}` : '—'}</td>
-                    <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums">
-                      {b.tco2e != null ? b.tco2e : b.calculation_error ? <span className="text-red-700" title={b.calculation_error}>not calculated</span> : '—'}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <StatusBadge status={b.status} />
-                      {b.status === 'needs_review' && b.issue_count > 0 && <span className="ml-2 text-xs text-amber-700">{b.issue_count} issue{b.issue_count === 1 ? '' : 's'}</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="masonry">
+            {bills.map((b, i) => (
+              <article key={b.id} tabIndex={0} role="link"
+                className="pin glass rise cursor-pointer rounded-3xl p-5 outline-none"
+                style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                onClick={() => navigate(`/bills/${b.id}`)} onKeyDown={(e) => e.key === 'Enter' && navigate(`/bills/${b.id}`)}>
+                <div className="flex items-start justify-between gap-2">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-lg ${b.utility_type === 'natural_gas' ? 'bg-orange-100' : 'bg-emerald-100'}`} aria-hidden="true">
+                    {b.utility_type === 'natural_gas' ? '🔥' : b.utility_type === 'electricity' ? '⚡' : '📄'}
+                  </span>
+                  <StatusBadge status={b.status} />
+                </div>
+                <h3 className="mt-3 break-words text-sm font-bold text-slate-900">{b.original_filename}</h3>
+                <p className="text-xs text-slate-500">{b.facility_name} · {b.utility_type?.replace('_', ' ') || 'unknown utility'}</p>
+                <div className="mt-4 flex items-end justify-between gap-2 border-t border-slate-200/60 pt-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500">Quantity</div>
+                    <div className="text-sm font-semibold tabular-nums">{b.quantity != null ? `${formatQty(b.quantity)} ${b.unit}` : '—'}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500">tCO₂e</div>
+                    <div className="text-lg font-extrabold tabular-nums text-emerald-800">
+                      {b.tco2e != null ? b.tco2e : b.calculation_error ? <span className="text-sm text-red-700" title={b.calculation_error}>not calculated</span> : '—'}
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">{b.billing_period_start ? `${b.billing_period_start} → ${b.billing_period_end ?? '?'}` : 'Period unknown'}</p>
+                {b.status === 'needs_review' && b.issue_count > 0 && <p className="mt-1 text-xs font-semibold text-amber-700">{b.issue_count} issue{b.issue_count === 1 ? '' : 's'} to review</p>}
+              </article>
+            ))}
           </div>
         )}
       </Card>

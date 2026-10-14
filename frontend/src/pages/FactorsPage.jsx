@@ -39,7 +39,7 @@ export default function FactorsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Emission factors</h1>
+        <h1 className="text-2xl font-extrabold sm:text-3xl">Emission factors</h1>
         {isAdmin && <Button onClick={() => setShowCreate((v) => !v)}>{showCreate ? 'Close' : 'Add org-specific factor'}</Button>}
       </div>
       <p className="max-w-3xl text-sm text-slate-600">

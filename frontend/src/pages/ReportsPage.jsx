@@ -73,7 +73,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Reports</h1>
+      <h1 className="text-2xl font-extrabold sm:text-3xl">Reports</h1>
       <p className="max-w-3xl text-sm text-slate-600">
         A report freezes the approved data for a period into a snapshot and renders an inspector-ready PDF from it:
         cover, executive summary, breakdowns by month and facility, methodology with every emission factor and its
@@ -107,7 +107,7 @@ export default function ReportsPage() {
         </div>
 
         {latest && (
-          <div className={`mt-4 rounded-md border px-4 py-3 text-sm ${latest.is_draft ? 'border-amber-300 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+          <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${latest.is_draft ? 'border-amber-300 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
             <div className="font-semibold text-slate-900">
               {latest.is_draft ? 'Draft generated: totals are incomplete' : 'Complete report generated'} ({latest.reporting_period_label})
             </div>

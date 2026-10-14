@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from '../api/client'
-import { Card, ErrorBox, inputClass } from '../components/ui'
+import { Card, ErrorBox, PageHeader, inputClass } from '../components/ui'
 import { StatusBadge, formatQty, formatT } from '../components/status'
 import Drawer from '../components/Drawer'
 import EmissionsTrace from '../components/EmissionsTrace'
@@ -61,10 +61,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-semibold">Emissions dashboard</h1>
+      <PageHeader title="Emissions dashboard" subtitle="Every figure is calculated from approved bills and traces back to its source page." />
 
       {/* One filter row; it scopes every number below. */}
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="glass flex flex-wrap items-end gap-3 rounded-3xl p-4">
         <label className="text-sm">
           <span className="mb-1 block text-xs font-medium text-slate-600">Reporting period</span>
           <select className={inputClass + ' !w-auto'} value={filters.year} onChange={set('year')}>
@@ -136,7 +136,7 @@ function Completeness({ data }) {
   const { bills, completeness } = data
   if (!completeness.is_partial) {
     return (
-      <p className="flex items-center gap-2 text-sm text-slate-600">
+      <p className="glass flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm text-slate-700">
         <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full" style={{ background: STATUS.good }} />
         Complete for this selection: every bill in the period is approved and calculated.
       </p>
@@ -149,8 +149,8 @@ function Completeness({ data }) {
     bills.calculation_errors && `${bills.calculation_errors} approved but not calculated`,
   ].filter(Boolean)
   return (
-    <div role="status" className="flex flex-wrap items-start gap-3 rounded-lg border px-4 py-3 text-sm"
-      style={{ borderColor: STATUS.warning, background: '#fffbeb' }}>
+    <div role="status" className="flex flex-wrap items-start gap-3 rounded-3xl border px-5 py-4 text-sm backdrop-blur"
+      style={{ borderColor: STATUS.warning, background: 'rgb(255 251 235 / 0.8)' }}>
       <span aria-hidden="true" className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-slate-900" style={{ background: STATUS.warning }}>!</span>
       <div className="min-w-0 flex-1">
         <div className="font-semibold text-slate-900">Partial total: {completeness.excluded_bills} bill{completeness.excluded_bills === 1 ? '' : 's'} not included</div>
@@ -168,12 +168,12 @@ function Headline({ data, label }) {
   const t = data.totals
   const hasData = t.kgco2e !== '0'
   return (
-    <Card>
+    <Card className="!bg-gradient-to-br from-white/80 via-emerald-50/70 to-amber-50/60">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,2fr)]">
         <div>
           <div className="text-sm text-slate-600">Total emissions{label ? `, ${label}` : ''}</div>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-5xl font-semibold text-slate-900">{formatT(t.tco2e)}</span>
+            <span className="font-display text-6xl font-extrabold tracking-tight text-slate-900">{formatT(t.tco2e)}</span>
             <span className="text-lg text-slate-600">tCO₂e</span>
           </div>
           {Number(data.ghg_basis.co2_only_tco2e) > 0 && (
@@ -206,7 +206,7 @@ function Stat({ label, sub, value, unit, swatch, share, status }) {
         {status === 'warning' && <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-slate-900" style={{ background: STATUS.warning }}>!</span>}
         {label}
       </div>
-      <div className="mt-0.5 text-2xl font-semibold text-slate-900">{value}{unit && <span className="ml-1 text-sm font-normal text-slate-500">{unit}</span>}</div>
+      <div className="mt-0.5 font-display text-2xl font-extrabold text-slate-900">{value}{unit && <span className="ml-1 text-sm font-normal text-slate-500">{unit}</span>}</div>
       <div className="text-xs text-slate-500">{share != null ? `${share}% · ` : ''}{sub}</div>
     </div>
   )
@@ -217,8 +217,8 @@ function ScopeSplit({ totals }) {
   const s1 = Number(totals.scope1_share_pct || 0)
   const s2 = Number(totals.scope2_share_pct || 0)
   return (
-    <div className="mt-5" aria-label={`Scope 1 ${totals.scope1_share_pct}%, Scope 2 ${totals.scope2_share_pct}%`}>
-      <div className="flex h-2.5 w-full gap-[2px] overflow-hidden rounded">
+    <div className="mt-6" aria-label={`Scope 1 ${totals.scope1_share_pct}%, Scope 2 ${totals.scope2_share_pct}%`}>
+      <div className="flex h-3 w-full gap-[3px] overflow-hidden rounded-full">
         {s1 > 0 && <div style={{ width: `${s1}%`, background: SCOPE_COLOR[1] }} title={`Scope 1: ${totals.scope1_tco2e} t (${totals.scope1_share_pct}%)`} />}
         {s2 > 0 && <div style={{ width: `${s2}%`, background: SCOPE_COLOR[2] }} title={`Scope 2: ${totals.scope2_tco2e} t (${totals.scope2_share_pct}%)`} />}
       </div>
@@ -230,7 +230,7 @@ function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   const row = payload[0].payload
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
+    <div className="glass-strong rounded-2xl px-3 py-2 text-xs">
       <div className="mb-1 font-medium text-slate-600">{monthLabel(label)}</div>
       {[2, 1].map((s) => (
         <div key={s} className="flex items-center gap-2">
@@ -255,7 +255,7 @@ function MonthlyTrend({ data, showTable, setShowTable }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-slate-500"><tr><th className="py-1.5 pr-4 font-medium">Month</th><th className="py-1.5 pr-4 text-right font-medium">Scope 1</th><th className="py-1.5 pr-4 text-right font-medium">Scope 2</th><th className="py-1.5 text-right font-medium">Total</th></tr></thead>
-            <tbody className="divide-y divide-slate-100 tabular-nums">
+            <tbody className="divide-y divide-slate-200/60 tabular-nums">
               {data.monthly.map((m) => (
                 <tr key={m.month}><td className="py-1.5 pr-4">{monthLabel(m.month)}</td><td className="py-1.5 pr-4 text-right">{formatT(m.scope1_tco2e)}</td><td className="py-1.5 pr-4 text-right">{formatT(m.scope2_tco2e)}</td><td className="py-1.5 text-right font-medium">{formatT(m.total_tco2e)}</td></tr>
               ))}
@@ -337,9 +337,9 @@ function BillsTable({ bills, onOpen }) {
                 <th className="py-2 font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-200/60">
               {bills.map((b) => (
-                <tr key={b.id} tabIndex={0} className="cursor-pointer hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
+                <tr key={b.id} tabIndex={0} className="cursor-pointer transition-colors hover:bg-white/60 focus:bg-white/60 focus:outline-none"
                   onClick={() => onOpen(b)} onKeyDown={(e) => e.key === 'Enter' && onOpen(b)}>
                   <td className="max-w-xs truncate py-2 pr-4 font-medium">{b.original_filename}</td>
                   <td className="py-2 pr-4">{b.facility_name}</td>

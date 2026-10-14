@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
-import { Button, Card, ErrorBox, Field, inputClass } from '../components/ui'
+import { Button, Card, ErrorBox, Field, PageHeader, inputClass } from '../components/ui'
 import { StatusBadge, TERMINAL } from '../components/status'
 
 const MAX_MB = 20
@@ -94,7 +94,7 @@ export default function UploadPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Upload bills</h1>
+      <PageHeader title="Upload bills" subtitle="Drop electricity or gas bill PDFs. GreenTrace reads them and flags anything doubtful for review." />
       <ErrorBox error={error} />
 
       <Card>
@@ -108,10 +108,11 @@ export default function UploadPage() {
 
           <div
             {...getRootProps()}
-            className={`cursor-pointer rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors ${isDragActive ? 'border-emerald-600 bg-emerald-50' : 'border-slate-300 hover:border-slate-400'}`}
+            className={`cursor-pointer rounded-3xl border-2 border-dashed px-6 py-14 text-center transition-all ${isDragActive ? 'scale-[1.01] border-emerald-500 bg-emerald-100/70' : 'border-emerald-700/25 bg-white/40 hover:border-emerald-600 hover:bg-white/70'}`}
           >
             <input {...getInputProps()} />
-            <p className="text-sm font-medium text-slate-700">Drop electricity or gas bill PDFs here, or click to choose</p>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-900/10 text-2xl" aria-hidden="true">⬆</div>
+            <p className="text-sm font-semibold text-slate-800">Drop electricity or gas bill PDFs here, or click to choose</p>
             <p className="mt-1 text-xs text-slate-500">PDF only, up to {MAX_MB} MB each. Scanned bills are OCR'd.</p>
           </div>
 
@@ -123,7 +124,7 @@ export default function UploadPage() {
 
           {files.length > 0 && (
             <div className="space-y-3">
-              <ul className="divide-y divide-slate-100 rounded-md border border-slate-200 text-sm">
+              <ul className="divide-y divide-slate-200/60 overflow-hidden rounded-2xl border border-white/70 bg-white/50 text-sm">
                 {files.map((f) => (
                   <li key={f.name + f.size} className="flex items-center justify-between gap-2 px-3 py-1.5">
                     <span className="truncate">{f.name}</span>

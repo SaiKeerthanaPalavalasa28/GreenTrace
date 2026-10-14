@@ -18,7 +18,7 @@ export default function EmissionsTrace({ billId, refreshKey }) {
   return (
     <Card title="Emissions">
       {bill.calculation_error && (
-        <div role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div role="alert" className="mb-3 rounded-2xl border border-red-200 bg-red-50/80 px-3 py-2 text-sm text-red-800">
           <div className="font-medium">Not calculated: excluded from totals</div>
           <div>{bill.calculation_error}</div>
         </div>
@@ -36,7 +36,7 @@ export default function EmissionsTrace({ billId, refreshKey }) {
               const t = r.calculation_trace_json
               const isOpen = open === r.id
               return (
-                <li key={r.id} className="rounded-md border border-slate-200">
+                <li key={r.id} className="overflow-hidden rounded-2xl border border-white/70 bg-white/50">
                   <button className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
                     onClick={() => setOpen(isOpen ? null : r.id)} aria-expanded={isOpen}>
                     <span>{r.allocation_start} → {r.allocation_end} <span className="text-slate-500">({t.allocation.fraction} days · {t.allocation.reporting_year})</span></span>
@@ -84,7 +84,7 @@ function Step({ n, title, children }) {
 
 function TraceDetail({ t }) {
   return (
-    <div className="space-y-3 border-t border-slate-200 bg-slate-50 px-3 py-3">
+    <div className="space-y-3 border-t border-slate-200/60 bg-white/40 px-3 py-3">
       <Step n={1} title="Bill">
         {t.bill.file_name} · page {t.extraction.page_number} · {t.bill.facility} ({t.bill.facility_region})
         <div className="font-mono text-xs text-slate-500">sha256 {t.bill.file_sha256.slice(0, 16)}…</div>

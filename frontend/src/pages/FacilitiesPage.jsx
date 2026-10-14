@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../auth'
-import { Button, Card, ErrorBox, Field, inputClass } from '../components/ui'
+import { Button, Card, ErrorBox, Field, PageHeader, inputClass } from '../components/ui'
 
 const EMPTY = { name: '', address: '', region: '' }
 
@@ -45,7 +45,7 @@ export default function FacilitiesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Facilities</h1>
+      <PageHeader title="Facilities" subtitle="The sites your bills belong to. Each one maps to a grid region for emission factors." />
       <ErrorBox error={error} />
 
       {isAdmin && (
@@ -79,24 +79,20 @@ export default function FacilitiesPage() {
         {facilities.length === 0 ? (
           <p className="text-sm text-slate-500">No facilities yet. Bills are uploaded against a facility, so add one first.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-slate-500">
-                <tr><th className="py-2 pr-4 font-medium">Name</th><th className="py-2 pr-4 font-medium">Address</th><th className="py-2 pr-4 font-medium">Region</th><th /></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {facilities.map((f) => (
-                  <tr key={f.id}>
-                    <td className="py-2 pr-4 font-medium">{f.name}</td>
-                    <td className="py-2 pr-4 text-slate-600">{f.address}</td>
-                    <td className="py-2 pr-4"><code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{f.region}</code></td>
-                    <td className="py-2 text-right">
-                      {isAdmin && <button className="text-emerald-700 hover:underline" onClick={() => edit(f)}>Edit</button>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="masonry">
+            {facilities.map((f, i) => (
+              <article key={f.id} className="pin glass rise rounded-3xl p-5" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
+                <div className="flex h-20 items-end rounded-2xl bg-gradient-to-br from-emerald-200 via-emerald-100 to-amber-100 p-3" aria-hidden="true">
+                  <span className="text-3xl">🏭</span>
+                </div>
+                <h3 className="mt-3 text-base font-bold">{f.name}</h3>
+                <p className="min-h-5 text-sm text-slate-600">{f.address || 'No address'}</p>
+                <div className="mt-3 flex items-center justify-between">
+                  <code className="rounded-full bg-emerald-900/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-900">{f.region}</code>
+                  {isAdmin && <button className="rounded-full px-3 py-1 text-sm font-semibold text-emerald-700 hover:bg-white/80" onClick={() => edit(f)}>Edit</button>}
+                </div>
+              </article>
+            ))}
           </div>
         )}
       </Card>

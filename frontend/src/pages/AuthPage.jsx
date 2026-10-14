@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { Button, ErrorBox, Field, inputClass } from '../components/ui'
+import { Button, ErrorBox, Field, Logo, inputClass } from '../components/ui'
 
 const FRAMEWORKS = [
   { value: 'BRSR', label: 'BRSR (India, SEBI)', region: 'IN', fyStart: 4 },
@@ -45,12 +45,29 @@ export default function AuthPage({ mode }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-lg border border-slate-200 bg-white p-6">
+    <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-4 py-10 lg:grid-cols-[1.1fr_1fr]">
+      <div className="hidden lg:block">
+        <Logo className="h-14 w-14" />
+        <h1 className="mt-6 text-5xl font-extrabold leading-[1.05] text-emerald-950">
+          Carbon numbers an auditor can <span className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent">trace</span>.
+        </h1>
+        <p className="mt-4 max-w-md text-lg text-slate-600">
+          Turn utility bills into an auditable emissions report. The AI reads, the code calculates, a person approves.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-2">
+          {['Bill → page → text', 'Sourced emission factors', 'Human review', 'PDF audit report'].map((t, i) => (
+            <span key={t} className="glass rise rounded-full px-4 py-2 text-sm font-semibold text-emerald-900" style={{ animationDelay: `${i * 80}ms` }}>{t}</span>
+          ))}
+        </div>
+      </div>
+      <form onSubmit={submit} className="glass-strong rise w-full max-w-md space-y-4 justify-self-center rounded-[2rem] p-7 sm:p-8">
         <div>
-          <h1 className="text-xl font-semibold text-emerald-800">GreenTrace</h1>
+          <div className="mb-4 flex items-center gap-2 lg:hidden"><Logo /><span className="font-display text-lg font-extrabold text-emerald-900">GreenTrace</span></div>
+          <h2 className="text-2xl font-extrabold text-slate-900">
+            {mode === 'login' ? 'Welcome back' : 'Create your account'}
+          </h2>
           <p className="text-sm text-slate-600">
-            {mode === 'login' ? 'Sign in to your organization' : 'Create an organization account'}
+            {mode === 'login' ? 'Sign in to your organization' : 'Set up an organization account'}
           </p>
         </div>
         <ErrorBox error={error} />
@@ -98,9 +115,9 @@ export default function AuthPage({ mode }) {
         </Button>
         <p className="text-center text-sm text-slate-600">
           {mode === 'login' ? (
-            <>No account? <Link className="text-emerald-700 hover:underline" to="/register">Create one</Link></>
+            <>No account? <Link className="font-semibold text-emerald-700 hover:underline" to="/register">Create one</Link></>
           ) : (
-            <>Already registered? <Link className="text-emerald-700 hover:underline" to="/login">Sign in</Link></>
+            <>Already registered? <Link className="font-semibold text-emerald-700 hover:underline" to="/login">Sign in</Link></>
           )}
         </p>
       </form>

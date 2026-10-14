@@ -490,16 +490,26 @@ token and prefixes `VITE_API_URL` if set.
 | `/upload` | UploadPage | Pick a facility, drag-and-drop PDFs (≤ 20 MB), see each file's live status. |
 | `/review` | ReviewQueuePage | Bills waiting for a person, oldest first; counts also shown as a badge in the top nav. |
 | `/review/:billId` | ReviewPage | Side-by-side page image and editable form (section 7). |
-| `/bills` | BillsPage | Table of all bills with filters, status, quantity, emissions. |
+| `/bills` | BillsPage | Masonry grid of bill cards with filters, status, quantity, emissions. |
 | `/bills/:id` | BillDetailPage | One bill: status, extraction, issues, PDF, calculation trace, reprocess/reopen. |
 | `/reports` | ReportsPage | Create, download, verify reports. |
 | `/facilities` | FacilitiesPage | Add/edit facilities. The region must have emission factors, otherwise it is rejected (a typo would make every bill fail). |
 | `/factors` | FactorsPage | Browse factors with history; admins add organization factors or new versions. |
 
-Shared pieces: `Layout.jsx` (nav + review badge refreshed every 30 s), `ui.jsx` (buttons, cards),
-`status.jsx` (status badges), `issues.js` (human wording for issue codes), `viz.js` (chart colors:
-Scope 1 blue, Scope 2 orange, colorblind-safe), `EmissionsTrace.jsx` (renders the calculation
-trace), `Drawer.jsx` (side panel), `auth.jsx` (login state).
+Shared pieces: `Layout.jsx` (floating glass nav bar + review badge refreshed every 30 s), `ui.jsx`
+(buttons, glass cards, page headers), `status.jsx` (status badges), `issues.js` (human wording for
+issue codes), `viz.js` (chart colors: Scope 1 ember, Scope 2 forest green, colorblind-safe),
+`EmissionsTrace.jsx` (renders the calculation trace), `Drawer.jsx` (side panel), `auth.jsx` (login
+state).
+
+**Design system** (all tokens live in `frontend/src/index.css`). The look is a Pinterest-style,
+card-first layout with glassmorphism: frosted-glass surfaces (`.glass`, `.glass-strong`) over a soft
+aurora background, pill-shaped navigation and buttons, and masonry card grids (`.masonry`, `.pin`) for
+bills, the review queue and facilities. The palette is chosen for the product: **forest green**
+(brand, "verified and clean") on **warm paper neutrals** (the "auditable document" feel), with
+**ember** reserved for natural gas / Scope 1 and **amber** for "needs attention". Tailwind's
+`emerald` and `slate` scales are overridden in `@theme`, so changing the brand colour is a one-place
+edit. Motion respects `prefers-reduced-motion`.
 
 ---
 

@@ -142,7 +142,7 @@ export default function ReviewPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Link to="/review" className="text-sm text-emerald-700 hover:underline">← Queue</Link>
-        <h1 className="truncate text-xl font-semibold">{bill.original_filename}</h1>
+        <h1 className="truncate text-2xl font-extrabold sm:text-3xl">{bill.original_filename}</h1>
         <StatusBadge status={bill.status} />
         <span className="text-xs text-slate-500">read by {e.model_used} via {e.text_method} · confidence {e.confidence?.toFixed(2)}</span>
       </div>
@@ -156,7 +156,7 @@ export default function ReviewPage() {
             <Card title="Why this bill needs review">
               <ul className="space-y-1.5 text-sm">
                 {issues.map((i, n) => (
-                  <li key={n} className={`rounded-md border px-3 py-1.5 ${blocking.has(i.code) ? 'border-red-200 bg-red-50 text-red-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+                  <li key={n} className={`rounded-xl border px-3 py-1.5 ${blocking.has(i.code) ? 'border-red-200 bg-red-50 text-red-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
                     <span className="font-medium">{issueLabel(i.code)}{blocking.has(i.code) && ' (must fix)'}:</span> {i.message}
                   </li>
                 ))}
@@ -215,7 +215,7 @@ export default function ReviewPage() {
             )}
 
             {accountConflict && (
-              <div role="alert" className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <div role="alert" className="mt-4 rounded-2xl border border-amber-300 bg-amber-50/80 p-3 text-sm text-amber-900">
                 <p>Account {form.account_number} is assigned to <b>{accountConflict.facility_name}</b>.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Button variant="secondary" onClick={moveToFacility}>This bill is {accountConflict.facility_name}'s</Button>
@@ -252,7 +252,7 @@ function FieldRow({ label, issues, blocking, changed, modelValue, children }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-medium text-slate-600">{label}</span>
-      <div className={`rounded-md ${ring}`}>{children}</div>
+      <div className={`rounded-xl ${ring}`}>{children}</div>
       {modelValue !== undefined && <span className="mt-0.5 block text-xs text-slate-500">Model read: {modelValue ?? '(empty)'}</span>}
     </label>
   )
@@ -286,7 +286,7 @@ function PageViewer({ billId, initialPage, snippet }) {
   }[img?.highlight]
 
   return (
-    <div className="flex flex-col rounded-lg border border-slate-200 bg-white lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
+    <div className="glass flex flex-col rounded-3xl lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 text-sm">
         <button className="rounded px-2 py-0.5 hover:bg-slate-100 disabled:text-slate-300" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Previous page">‹</button>
         <span>Page {page}{img ? ` of ${img.pageCount}` : ''}</span>
