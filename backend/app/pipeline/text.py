@@ -48,10 +48,12 @@ def ocr_page(pdf_bytes: bytes, page_index: int, dpi: int) -> str:
     try:
         return pytesseract.image_to_string(image)
     except pytesseract.TesseractNotFoundError:
-        raise OcrUnavailableError(
-            "This bill has no text layer (it looks scanned) and OCR is not available on the server: "
-            "Tesseract is not installed or not on PATH. Install it, then reprocess the bill."
-        ) from None
+        # No Tesseract on this server (e.g. Render's native runtime): read the page with Gemini vision.
+        from app.pipeline.llm import ocr_image_with_gemini
+
+        buf = io.BytesIO()
+        image.convert("L").save(buf, format="PNG")
+        return ocr_image_with_gemini(buf.getvalue(), settings)
 
 
 def extract_text(pdf_bytes: bytes, ocr: Callable[[bytes, int, int], str] = ocr_page) -> PdfText:

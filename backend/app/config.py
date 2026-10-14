@@ -3,7 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """Configuration with working defaults: no .env file and no API keys are needed. Real process
     environment variables (e.g. DATABASE_URL, set by the deployment) still override a default."""
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
 
     app_env: str = "development"
     # Supabase: use the Postgres connection string, e.g.
@@ -25,8 +25,6 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 8 * 60
-
-    cors_origins: list[str] = ["http://localhost:5173"]
 
     storage_backend: Literal["local", "s3"] = "local"
     storage_dir: Path = BACKEND_DIR / "storage"  # local backend
@@ -41,11 +39,12 @@ class Settings(BaseSettings):
     max_files_per_upload: int = 50
     max_pdf_pages: int = 30
 
-    # Structured extraction: a LangChain chat model served by a local Ollama server (no API key).
-    llm_base_url: str = "http://localhost:11434"
-    llm_model: str = "llama3.1:8b"
-    llm_timeout_seconds: int = 300
-    llm_context_tokens: int = 16384
+    # Structured extraction: a LangChain chat model (Google Gemini). Set GOOGLE_API_KEY (or
+    # GEMINI_API_KEY) - get one free at https://aistudio.google.com/apikey
+    google_api_key: str | None = Field(default=None, validation_alias=AliasChoices("GOOGLE_API_KEY", "GEMINI_API_KEY", "google_api_key"))
+    llm_model: str = "gemini-2.5-flash"
+    llm_timeout_seconds: int = 120
+    llm_requests_per_minute: int = 10  # stay under the free-tier quota; 0 = no limit
     max_prompt_chars: int = 60_000
     extraction_workers: int = 3
     requeue_on_startup: bool = True  # resume bills interrupted by a restart
@@ -53,7 +52,7 @@ class Settings(BaseSettings):
     # Text extraction: a page with fewer non-whitespace characters than this is OCR'd.
     min_text_chars_per_page: int = 40
     ocr_dpi: int = 300
-    tesseract_cmd: str | None = None  # e.g. C:\Program Files\Tesseract-OCR\tesseract.exe
+    tesseract_cmd: str | None = None  # optional; without Tesseract, scanned pages are read by Gemini vision
 
     # Validation rules (code, not LLM). Any failed rule sends the bill to review.
     review_confidence_threshold: float = 0.85

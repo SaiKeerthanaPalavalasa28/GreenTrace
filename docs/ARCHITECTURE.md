@@ -43,19 +43,19 @@ flowchart LR
       FS["(Disk or S3<br/>bill + report PDFs)"]
     end
     subgraph "Your own host"
-      OL["Ollama server<br/>local LLM"]
+      OL["Google Gemini API"]
     end
 
     U -->|HTTPS| FE
     FE -->|"REST/JSON + JWT (VITE_API_URL)"| API
     API --> DB
     API --> FS
-    API -->|"LangChain ChatOllama<br/>HTTP, no API key"| OL
+    API -->|"LangChain ChatGoogleGenerativeAI<br/>HTTPS, GOOGLE_API_KEY"| OL
 ```
 
 Everything the browser needs is static (Vercel); all logic and data live in the backend. The LLM
 is a separate service so it can be sized (GPU/RAM) independently and swapped by changing
-`LLM_BASE_URL` / `LLM_MODEL`.
+`GOOGLE_API_KEY` / `LLM_MODEL`.
 
 ---
 
@@ -149,8 +149,8 @@ sequenceDiagram
 - Handlers `commit()` explicitly; if a handler raises, nothing is committed. The audit row is added to
   the same session, so **a change and its audit record commit or roll back together**.
 - Admin-only routes depend on `AdminUser` (`require_admin`), returning 403 for members.
-- CORS: `CORSMiddleware` allows only `CORS_ORIGINS`, headers `Authorization`/`Content-Type`, and exposes
-  `X-Page-Count`/`X-Highlight` so the browser can read them.
+- CORS: `CORSMiddleware` allows any origin without credentials. This is safe because auth is a Bearer token
+  in the `Authorization` header, never a cookie. It exposes `X-Page-Count`/`X-Highlight` so the browser can read them.
 
 ---
 
@@ -167,7 +167,7 @@ sequenceDiagram
     participant W as process_bill
     participant T as text.py
     participant L as LangChainExtractor
-    participant O as Ollama
+    participant O as Gemini
     participant V as validate.py
     participant C as calc/service.py
 
@@ -188,7 +188,7 @@ sequenceDiagram
     W->>T: extract_text()
     T-->>W: pages[] (OCR for pages with no text layer)
     W->>L: extract_structured(prompt)
-    L->>O: ChatOllama.invoke(system+human), format=JSON schema
+    L->>O: ChatGoogleGenerativeAI.invoke(system+human), JSON mode
     O-->>L: JSON text
     L-->>W: LLMExtraction (Pydantic, Decimal)
     W->>V: validate(extraction, pages, context)
@@ -253,9 +253,9 @@ flowchart TD
     A["document text<br/>=== PAGE n === blocks"] --> B{"length ><br/>60,000 chars?"}
     B -- yes --> X1["ExtractionError:<br/>refuse, never truncate"]
     B -- no --> C["SystemMessage: clerk rules<br/>HumanMessage: bill text<br/>+ correction if retry"]
-    C --> D["ChatOllama.invoke<br/>temperature 0<br/>format = JSON Schema<br/>num_ctx 16384"]
+    C --> D["ChatGoogleGenerativeAI.invoke<br/>temperature 0<br/>JSON mode + schema in prompt"]
     D -->|exception| E{classify}
-    E -- "404 model missing" --> X2["ExtractionError:<br/>'ollama pull model'"]
+    E -- "404 model missing" --> X2["ExtractionError:<br/>'model not available'"]
     E -- "other, attempts left" --> F["sleep 2s, 4s, 8s<br/>retry"]
     F --> D
     E -- "attempts exhausted" --> X3["ExtractionError:<br/>cannot reach model"]
@@ -273,8 +273,8 @@ Why this design:
 - **Two independent retry loops.** The inner loop (in `LangChainExtractor.extract`) handles *transport*
   problems. The outer loop (`extract_structured`) handles *content* problems: it re-asks once and passes
   the exact validation errors back to the model.
-- **Schema-constrained decoding.** `format=RESPONSE_JSON_SCHEMA` makes Ollama restrict token generation to
-  valid JSON of that shape, which sharply reduces malformed output. The schema is hand-maintained (flat,
+- **JSON mode + schema in the prompt.** Gemini runs with `response_mime_type=application/json` and the schema
+  is included in the prompt, which sharply reduces malformed output (Pydantic still validates and retries once). The schema is hand-maintained (flat,
   no `$ref`) because providers support only a subset of JSON Schema; a unit test asserts it matches the
   Pydantic model field-for-field.
 - **Exact decimals.** `json.loads(..., parse_float=Decimal)` means `1234.56` never passes through a binary
@@ -687,8 +687,8 @@ flowchart TB
       WS --> DK
     end
     VC -->|static SPA| USER([Browser])
-    USER -->|"HTTPS API calls<br/>CORS_ORIGINS must list the Vercel URL"| WS
-    WS -->|"LLM_BASE_URL"| OLL["Ollama server<br/>you operate"]
+    USER -->|"HTTPS API calls<br/>CORS open to all origins"| WS
+    WS -->|"GOOGLE_API_KEY"| OLL["Google Gemini API"]
 ```
 
 Environment configuration at a glance:
@@ -697,7 +697,7 @@ Environment configuration at a glance:
 |---|---|---|
 | Vercel | `VITE_API_URL` | Backend origin baked into the frontend build. |
 | Render (auto) | `DATABASE_URL`, `JWT_SECRET`, `PYTHON_VERSION`, `STORAGE_DIR` | From `render.yaml`. |
-| Render (you) | `CORS_ORIGINS`, `LLM_BASE_URL` | Your Vercel URL; your Ollama URL. |
+| Render (you) | `GOOGLE_API_KEY` | Your Gemini key. |
 | Optional | `STORAGE_BACKEND=s3` + `S3_*` | Durable storage on the free tier. |
 
 There is no `.env` file anywhere and no LLM API key; configuration is code defaults plus platform variables.
@@ -717,6 +717,6 @@ There is no `.env` file anywhere and no LLM API key; configuration is code defau
 | `Decimal` and strings everywhere | No float drift between UI, DB, PDF. | Slightly more code. |
 | Snapshot-first, deterministic PDF + hashes | Verifiable, tamper-evident reports. | Pinned library versions. |
 | In-process thread-pool queue | Simple, no extra infra for one instance. | Not horizontally scalable without a broker. |
-| Local Ollama via LangChain | No API keys or vendor lock-in; swap models by name. | You must host the model; needs GPU/RAM for quality and speed. |
+| Gemini via LangChain | Nothing to host, strong accuracy, and vision doubles as OCR; swap models by name. | Needs an API key; free tier is rate-limited (the app spaces its calls). |
 | SQLite for tests, Postgres for prod | Fast tests, no setup. | Dialect differences must be watched (portable types used). |
-| Static SPA on Vercel + API on Render | Cheap, independent scaling and deploys. | CORS configuration and two deployments. |
+| Static SPA on Vercel + API on Render | Cheap, independent scaling and deploys. | Two deployments (CORS is open, since auth is a header token). |

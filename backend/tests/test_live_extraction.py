@@ -1,6 +1,6 @@
-"""LIVE extraction accuracy against the real Ollama model. Opt-in (costs API calls):
+"""LIVE extraction accuracy against the real Gemini model. Opt-in (uses API quota):
 
-    ollama serve   (and: ollama pull llama3.1:8b)
+    set GOOGLE_API_KEY=...   (PowerShell: $env:GOOGLE_API_KEY="...")
     .venv\\Scripts\\python -m pytest -m live -v
 
 Each text-layer sample bill goes through the real text extraction + LLM + validation, and
@@ -11,7 +11,6 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
-import httpx
 import pytest
 
 from app.calc.units import canonical_unit
@@ -29,10 +28,8 @@ pytestmark = pytest.mark.live
 @pytest.fixture(scope="module")
 def extractor():
     ex = LangChainExtractor(Settings(jwt_secret="x" * 32))
-    try:
-        httpx.get(ex.settings.llm_base_url, timeout=3)
-    except httpx.HTTPError:
-        pytest.skip(f"no Ollama server at {ex.settings.llm_base_url}")
+    if not ex.settings.google_api_key:
+        pytest.skip("GOOGLE_API_KEY is not set")
     return ex
 
 

@@ -89,7 +89,7 @@ def _extractor(outcomes, monkeypatch):
     SLEEPS.clear()
     monkeypatch.setattr(llm_mod.time, "sleep", SLEEPS.append)
     chat = _FakeChat(outcomes)
-    ex = LangChainExtractor(Settings(jwt_secret="x" * 32, llm_model="test-model"), chat_model=chat)
+    ex = LangChainExtractor(Settings(jwt_secret="x" * 32, llm_model="test-model", llm_requests_per_minute=0), chat_model=chat)
     return ex, chat
 
 
@@ -101,13 +101,27 @@ def test_request_shape(monkeypatch):
     assert "=== PAGE 1 ===" in human.content and "previous answer was rejected: confidence" in human.content
 
 
-def test_chat_model_is_configured_without_any_key():
-    from langchain_ollama import ChatOllama
+def test_chat_model_is_gemini():
+    from langchain_google_genai import ChatGoogleGenerativeAI
 
-    ex = LangChainExtractor(Settings(jwt_secret="x" * 32, llm_model="test-model", llm_base_url="http://llm:11434"))
+    ex = LangChainExtractor(Settings(jwt_secret="x" * 32, llm_model="gemini-2.5-flash", google_api_key="test-key"))
     model = ex._get_chat_model()
-    assert isinstance(model, ChatOllama)
-    assert model.model == "test-model" and model.temperature == 0 and model.format == RESPONSE_JSON_SCHEMA
+    assert isinstance(model, ChatGoogleGenerativeAI)
+    assert model.model.endswith("gemini-2.5-flash") and model.temperature == 0
+    assert model.response_mime_type == "application/json"
+
+
+def test_missing_api_key_is_actionable():
+    ex = LangChainExtractor(Settings(jwt_secret="x" * 32, google_api_key=None))
+    with pytest.raises(ExtractionError, match="GOOGLE_API_KEY"):
+        ex._get_chat_model()
+
+
+def test_rejected_key_is_actionable(monkeypatch):
+    ex, chat = _extractor([_StatusError(403)], monkeypatch)
+    with pytest.raises(ExtractionError, match="rejected the API key"):
+        ex.extract("doc")
+    assert len(chat.calls) == 1
 
 
 def test_retries_transient_errors(monkeypatch):
@@ -118,14 +132,14 @@ def test_retries_transient_errors(monkeypatch):
 
 def test_gives_up_when_server_unreachable(monkeypatch):
     ex, chat = _extractor([ConnectionError("down")] * 4, monkeypatch)
-    with pytest.raises(ExtractionError, match="Could not reach the extraction model"):
+    with pytest.raises(ExtractionError, match="Could not reach the Gemini API"):
         ex.extract("doc")
     assert len(chat.calls) == 4
 
 
 def test_missing_model_is_actionable(monkeypatch):
     ex, chat = _extractor([_StatusError(404)], monkeypatch)
-    with pytest.raises(ExtractionError, match="ollama pull test-model"):
+    with pytest.raises(ExtractionError, match="not available"):
         ex.extract("doc")
     assert len(chat.calls) == 1
 

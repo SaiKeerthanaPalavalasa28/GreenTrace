@@ -2,7 +2,7 @@ import pytest
 
 from app.pipeline import text as text_mod
 from app.pipeline.errors import OcrUnavailableError, PdfReadError
-from app.pipeline.text import extract_text
+from app.pipeline.text import extract_text, ocr_page
 from tests.helpers import ELECTRICITY_BILL, make_image_pdf, make_pdf, make_text_pdf
 
 
@@ -47,7 +47,7 @@ def test_scanned_pdf_without_tesseract_gives_readable_error(monkeypatch):
         raise pytesseract.TesseractNotFoundError()
 
     monkeypatch.setattr(pytesseract, "image_to_string", missing)
-    with pytest.raises(OcrUnavailableError, match="Tesseract is not installed"):
+    with pytest.raises(OcrUnavailableError, match="GOOGLE_API_KEY"):
         extract_text(make_image_pdf(ELECTRICITY_BILL))
 
 
@@ -83,3 +83,23 @@ def test_too_many_pages(monkeypatch):
     monkeypatch.setattr(get_settings(), "max_pdf_pages", 2)
     with pytest.raises(PdfReadError, match="3 pages"):
         extract_text(make_text_pdf([ELECTRICITY_BILL] * 3))
+
+
+def test_scanned_page_falls_back_to_gemini_vision_without_tesseract(monkeypatch):
+    import pytesseract
+
+    from app.pipeline import llm
+
+    def missing(*a, **k):
+        raise pytesseract.TesseractNotFoundError()
+
+    seen = {}
+
+    def fake_gemini(png_bytes, settings=None):
+        seen["png"] = png_bytes[:4]
+        return "Units consumed 12500 kWh"
+
+    monkeypatch.setattr(pytesseract, "image_to_string", missing)
+    monkeypatch.setattr(llm, "ocr_image_with_gemini", fake_gemini)
+    assert ocr_page(make_image_pdf("x"), 0, 72) == "Units consumed 12500 kWh"
+    assert seen["png"] == b"\x89PNG"

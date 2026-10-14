@@ -11,7 +11,7 @@ from typing import Protocol
 from pydantic import ValidationError
 
 from app.config import Settings, get_settings
-from app.pipeline.errors import ExtractionError
+from app.pipeline.errors import ExtractionError, OcrUnavailableError
 from app.pipeline.schema import RESPONSE_JSON_SCHEMA, LLMExtraction
 
 log = logging.getLogger(__name__)
@@ -90,6 +90,7 @@ class RateLimiter:
     None or 0 = no limit."""
 
     def __init__(self, per_minute: int | None):
+        self.per_minute = per_minute
         self.interval = 60.0 / per_minute if per_minute else 0.0
         self._next = 0.0
         self._lock = threading.Lock()
@@ -105,9 +106,38 @@ class RateLimiter:
             time.sleep(slot - now)
 
 
+_limiter: RateLimiter | None = None
+
+
+def _rate_limit(settings: Settings) -> None:
+    global _limiter
+    if _limiter is None or _limiter.per_minute != settings.llm_requests_per_minute:
+        _limiter = RateLimiter(settings.llm_requests_per_minute)
+    _limiter.wait()
+
+
+def build_chat_model(settings: Settings):
+    """Gemini via LangChain, in JSON mode (the schema is spelled out in the prompt and the reply is
+    validated by pydantic, with one corrective retry)."""
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    if not settings.google_api_key:
+        raise ExtractionError(
+            "GOOGLE_API_KEY is not set on the server. Create a free key at "
+            "https://aistudio.google.com/apikey, set it, then reprocess the bill.")
+    return ChatGoogleGenerativeAI(
+        model=settings.llm_model,
+        google_api_key=settings.google_api_key,
+        temperature=0,
+        response_mime_type="application/json",
+        timeout=settings.llm_timeout_seconds,
+        max_retries=0,  # we retry ourselves, with backoff
+    )
+
+
 class LangChainExtractor:
-    """LangChain chat model (a local Ollama server, so no API key) with JSON-schema-constrained
-    output. Transient connection errors are retried with backoff."""
+    """LangChain chat model (Google Gemini) returning JSON. Transient errors (rate limit, 5xx,
+    network) are retried with backoff."""
 
     MAX_ATTEMPTS = 4
 
@@ -118,16 +148,7 @@ class LangChainExtractor:
 
     def _get_chat_model(self):
         if self._chat_model is None:
-            from langchain_ollama import ChatOllama
-
-            self._chat_model = ChatOllama(
-                model=self.settings.llm_model,
-                base_url=self.settings.llm_base_url,
-                temperature=0,
-                format=RESPONSE_JSON_SCHEMA,  # constrained decoding to the schema
-                num_ctx=self.settings.llm_context_tokens,
-                client_kwargs={"timeout": self.settings.llm_timeout_seconds},
-            )
+            self._chat_model = build_chat_model(self.settings)
         return self._chat_model
 
     def extract(self, document_text: str, correction: str | None = None) -> str:
@@ -145,38 +166,93 @@ class LangChainExtractor:
                 f"\n\nYour previous answer was rejected: {correction}\n"
                 "Return JSON that matches the schema exactly."
             )
-        messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)]
+        system = SYSTEM_PROMPT + "\nReturn ONLY a JSON object matching this JSON Schema:\n" + json.dumps(RESPONSE_JSON_SCHEMA)
+        messages = [SystemMessage(content=system), HumanMessage(content=prompt)]
         model = self._get_chat_model()
         delay = 2.0
         for attempt in range(self.MAX_ATTEMPTS):
             last = attempt == self.MAX_ATTEMPTS - 1
             try:
-                text = model.invoke(messages).content
+                _rate_limit(self.settings)
+                text = _content_text(model.invoke(messages).content)
             except Exception as e:
                 kind = _classify(e)
                 if kind == "transient" and not last:
-                    log.warning("LLM server error %r, retrying in %.0fs", e, delay)
+                    log.warning("LLM error %r, retrying in %.0fs", e, delay)
                     time.sleep(delay)
                     delay *= 2
                     continue
                 if kind == "model_missing":
                     raise ExtractionError(
-                        f"The model {self.model_name!r} is not available on the LLM server. "
-                        f"Run: ollama pull {self.model_name}") from e
+                        f"The model {self.model_name!r} is not available. Set LLM_MODEL to a valid "
+                        "Gemini model, e.g. gemini-2.5-flash.") from e
+                if kind == "auth":
+                    raise ExtractionError(
+                        "Gemini rejected the API key. Check GOOGLE_API_KEY, then reprocess the bill.") from e
                 raise ExtractionError(
-                    f"Could not reach the extraction model at {self.settings.llm_base_url} "
-                    "(is the Ollama server running?). Reprocess the bill once it is up.") from e
-            if not isinstance(text, str) or not text.strip():
+                    "Could not reach the Gemini API (rate limit or network). "
+                    "Reprocess the bill in a minute.") from e
+            if not text.strip():
                 raise ExtractionError("The extraction model returned an empty response.")
             return text
         raise ExtractionError("The extraction service is unavailable. Try reprocessing later.")
 
 
+def _content_text(content) -> str:
+    """Gemini may return a plain string or a list of content parts."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(p if isinstance(p, str) else p.get("text", "") for p in content if isinstance(p, (str, dict)))
+    return ""
+
+
 def _classify(e: Exception) -> str:
-    status = getattr(e, "status_code", None)
+    status = getattr(e, "status_code", None) or getattr(e, "code", None)
+    msg = str(e).lower()
     if status == 404:
         return "model_missing"
+    if status in (401, 403) or "api key" in msg or "api_key" in msg:
+        return "auth"
     return "transient"
+
+
+OCR_PROMPT = (
+    "Transcribe ALL the text in this image of a utility bill page exactly as printed, preserving "
+    "line breaks and the order of lines. Do not summarise, translate, correct or calculate anything. "
+    "Output the plain text only."
+)
+
+
+def ocr_image_with_gemini(png_bytes: bytes, settings: Settings | None = None) -> str:
+    """Read a scanned page with Gemini vision (used when Tesseract is not installed)."""
+    import base64
+
+    from langchain_core.messages import HumanMessage
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    settings = settings or get_settings()
+    if not settings.google_api_key:
+        raise OcrUnavailableError(
+            "This bill has no text layer (it looks scanned) and OCR is not available: neither "
+            "Tesseract nor a GOOGLE_API_KEY (Gemini vision) is configured.")
+    model = ChatGoogleGenerativeAI(model=settings.llm_model, google_api_key=settings.google_api_key,
+                                   temperature=0, timeout=settings.llm_timeout_seconds, max_retries=0)
+    msg = HumanMessage(content=[
+        {"type": "text", "text": OCR_PROMPT},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(png_bytes).decode()}},
+    ])
+    delay = 2.0
+    for attempt in range(LangChainExtractor.MAX_ATTEMPTS):
+        try:
+            _rate_limit(settings)
+            return _content_text(model.invoke([msg]).content)
+        except Exception as e:
+            if _classify(e) == "transient" and attempt < LangChainExtractor.MAX_ATTEMPTS - 1:
+                time.sleep(delay)
+                delay *= 2
+                continue
+            raise OcrUnavailableError(f"Reading the scanned page with Gemini failed ({type(e).__name__}). Reprocess the bill later.") from e
 
 
 _extractor: Extractor | None = None

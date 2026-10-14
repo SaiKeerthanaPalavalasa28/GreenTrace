@@ -40,7 +40,7 @@ The one rule that shapes everything: **the AI reads, the code calculates.**
 13. [Data model (database tables)](#13-data-model-database-tables)
 14. [The website, page by page](#14-the-website-page-by-page)
 15. [Folder-by-folder, file-by-file guide](#15-folder-by-folder-file-by-file-guide)
-16. [Configuration (no `.env`, no API keys)](#16-configuration-no-env-no-api-keys)
+16. [Configuration (no `.env`, no API keys)](#16-configuration-no-env-one-api-key)
 17. [Run it on your computer](#17-run-it-on-your-computer)
 18. [The `samples/` folder: what it is and what to do with it](#18-the-samples-folder-what-it-is-and-what-to-do-with-it)
 19. [Tests](#19-tests)
@@ -114,9 +114,9 @@ seeded for **India (CEA, IPCC), UK (DESNZ), US (EPA eGRID and GHG Hub)**.
         │                         └──────────────►  File storage (bill PDFs, report PDFs): local disk or S3
         │ background worker threads
         ▼
- PDF text (pdfplumber) ─ no text? ─► OCR (Tesseract)
+ PDF text (pdfplumber) ─ no text? ─► OCR (Tesseract, or Gemini vision if not installed)
         ▼
- LangChain ChatOllama ──► an Ollama server running a local model (no API key)
+ LangChain ChatGoogleGenerativeAI ──► Google Gemini (needs GOOGLE_API_KEY)
         ▼
  Code validation  ─►  approved  or  needs_review (human)  ─►  calculation engine (Decimal math)  ─►  emission records
                                                                      ▲
@@ -130,8 +130,8 @@ seeded for **India (CEA, IPCC), UK (DESNZ), US (EPA eGRID and GHG Hub)**.
 | Frontend | React 19, Vite, Tailwind CSS 4, Recharts, react-router, react-dropzone | Fast SPA, charts. |
 | Backend | Python, FastAPI, SQLAlchemy 2, Alembic, Pydantic | Typed API, migrations. |
 | DB | PostgreSQL in production, SQLite for local/tests | SQLite needs no setup. |
-| PDF reading | pdfplumber (text), pypdfium2 (render pages), Tesseract via pytesseract (OCR) | |
-| AI | LangChain (`langchain-ollama`, `ChatOllama`) + an Ollama server | No API keys. |
+| PDF reading | pdfplumber (text), pypdfium2 (render pages), Tesseract via pytesseract (OCR), with Gemini vision as the fallback | |
+| AI | LangChain (`langchain-google-genai`, `ChatGoogleGenerativeAI`) + Google Gemini | Needs a free `GOOGLE_API_KEY`. |
 | Math | Python `Decimal` everywhere (never floats) | Exact, reproducible results. |
 | Reports | ReportLab (PDF) + matplotlib (charts) | Deterministic output. |
 | Auth | bcrypt password hashes, JWT bearer tokens | |
@@ -156,7 +156,7 @@ seeded for **India (CEA, IPCC), UK (DESNZ), US (EPA eGRID and GHG Hub)**.
 3. **Worker** (`app/pipeline/runner.py`, `process_bill`) sets status `processing`, then:
    1. **Read text** (`app/pipeline/text.py`). pdfplumber extracts text page by page. A page with
       fewer than 40 non-blank characters is treated as scanned: it is rendered to an image at
-      300 DPI and run through **Tesseract OCR**. Limits: max 30 pages; encrypted/corrupt PDFs give
+      300 DPI and read by **Tesseract OCR**; if Tesseract isn't installed (e.g. on Render) the page image is read by **Gemini vision** instead. Limits: max 30 pages; encrypted/corrupt PDFs give
       a clear error. The pages are joined as `=== PAGE 1 ===`, `=== PAGE 2 ===`... so the AI (and
       the checks) know which page is which.
    2. **Extract with the AI** (`app/pipeline/llm.py`). See [section 5](#5-the-ai--langchain-part).
@@ -182,9 +182,9 @@ The upload page polls `GET /api/bills/status?ids=...` every 2 seconds to show li
 
 File: `backend/app/pipeline/llm.py` (the AI call) and `app/pipeline/schema.py` (the contract).
 
-**No API keys.** The AI is a **LangChain `ChatOllama`** model talking to an **Ollama** server
-(open-source models run by you). Ollama has no key. You choose where it runs with two settings:
-`LLM_BASE_URL` (default `http://localhost:11434`) and `LLM_MODEL` (default `llama3.1:8b`).
+**One API key.** The AI is a **LangChain `ChatGoogleGenerativeAI`** model (Google **Gemini**). Create a
+free key at https://aistudio.google.com/apikey and set it as `GOOGLE_API_KEY` (never commit it). The
+model is chosen with `LLM_MODEL` (default `gemini-2.5-flash`).
 
 **The prompt.** `SYSTEM_PROMPT` tells the model it is a careful data-entry clerk: copy values
 exactly as printed; do **not** calculate, convert, add up, round or infer; give `null` for
@@ -207,17 +207,18 @@ confidence.
 | `confidence` | 0 to 1 |
 | `notes` | anything a reviewer should know (solar export, corrected bill...) |
 
-Enforcement is layered: (1) the JSON schema is handed to Ollama (`format=...`), which constrains
-the model's output to it; (2) Pydantic re-validates it and **rejects extra fields**; (3) numbers
+Enforcement is layered: (1) the JSON schema is put in the prompt and Gemini runs in JSON mode
+(`response_mime_type=application/json`); (2) Pydantic re-validates it and **rejects extra fields**; (3) numbers
 are parsed as `Decimal` straight from the JSON text so `1234.56` stays exact (a float would not);
 (4) on a bad reply the model is asked once more with the exact error.
 
 **Robustness.** Temperature is 0 (deterministic). A bill whose text is longer than 60,000
 characters is *refused* rather than cut off (the consumption figure could be in the missing part).
 Connection errors are retried 4 times with growing waits (2s, 4s, 8s). If the server is
-unreachable, the bill fails with: *"Could not reach the extraction model at ... (is the Ollama
-server running?). Reprocess the bill once it is up."* A missing model gives
-*"... Run: ollama pull <model>"*.
+unreachable or rate-limited, the bill fails with: *"Could not reach the Gemini API (rate limit or
+network). Reprocess the bill in a minute."* A missing key gives *"GOOGLE_API_KEY is not set..."* and a
+rejected key *"Gemini rejected the API key..."*. Calls are spaced to `LLM_REQUESTS_PER_MINUTE`
+(default 10, the free-tier quota).
 
 **Testing hook.** The rest of the app only knows the tiny `Extractor` interface (`extract(text,
 correction) -> JSON string`). Tests plug in a fake extractor; production uses
@@ -225,8 +226,8 @@ correction) -> JSON string`). Tests plug in a fake extractor; production uses
 
 **Choosing a model.** Bigger models read messy bills better. Whatever the model gets wrong is
 caught by the validation rules or the review queue, but a weak model means more bills go to
-review. Try `ollama pull llama3.1:8b` first, test on the sample bills (`pytest -m live`), and move
-to a larger model if accuracy is poor.
+review. The default is `gemini-2.5-flash`; test on the sample bills (`pytest -m live`) and set
+`LLM_MODEL=gemini-2.5-pro` if accuracy is poor.
 
 ---
 
@@ -294,7 +295,7 @@ Actions:
 - **Reject**: needs a reason. The bill is excluded from reporting.
 - **Reopen** (admin only): send an approved/rejected bill back to review with a reason; its
   emissions leave the totals until it is approved again (old records are kept as history).
-- **Reprocess**: re-run extraction for `failed`/`needs_review` bills (e.g. after starting Ollama).
+- **Reprocess**: re-run extraction for `failed`/`needs_review` bills (e.g. after a rate-limit error).
 - **Concurrent edits**: each request sends the bill's `updated_at`; if someone else changed the
   bill meanwhile you get a "reload" error instead of overwriting their work.
 
@@ -539,7 +540,7 @@ GreenTrace/
 
 | File / folder | Role |
 |---|---|
-| `main.py` | Creates the FastAPI app, CORS, mounts all routers under `/api`, re-queues unfinished bills at startup, `/api/health`. |
+| `main.py` | Creates the FastAPI app, CORS (open to all origins; auth is a header token, not cookies), mounts all routers under `/api`, re-queues unfinished bills at startup, `/api/health`. |
 | `config.py` | All settings with defaults (section 16); auto-generates the JWT secret. |
 | `db.py` | SQLAlchemy engine/session (SQLite foreign keys switched on). |
 | `deps.py` | FastAPI dependencies: DB session, current user from JWT, `AdminUser`. |
@@ -555,7 +556,7 @@ GreenTrace/
 | `models/` | `base.py` (types), `org.py`, `bill.py`, `emissions.py`. |
 | `api/` | One router per area: `auth, users, facilities, factors, bills, review, dashboard, reports, audit`. |
 | `pipeline/text.py` | PDF → text per page, OCR fallback. |
-| `pipeline/llm.py` | LangChain/Ollama extractor, prompt, retry logic. |
+| `pipeline/llm.py` | LangChain/Gemini extractor, Gemini-vision OCR, prompt, retry logic. |
 | `pipeline/schema.py` | The AI contract (Pydantic + JSON Schema). |
 | `pipeline/validate.py` | All validation rules (section 6). |
 | `pipeline/runner.py` | Orchestrates one bill end to end. |
@@ -574,7 +575,7 @@ GreenTrace/
 
 ---
 
-## 16. Configuration (no `.env`, no API keys)
+## 16. Configuration (no `.env`; one API key)
 
 Nothing reads a `.env` file, and there is no API key in the project. Every setting has a working
 default in `app/config.py`. In deployment you can override a setting with a normal **process
@@ -586,18 +587,17 @@ to create a file.
 | `DATABASE_URL` | local SQLite file `backend/greentrace.db` | Postgres URL in production. `postgres://` and `postgresql://` are auto-converted to the psycopg driver. |
 | `JWT_SECRET` | auto-generated and saved in storage dir | Token signing key (≥ 32 chars). Set explicitly if you run several API instances. |
 | `JWT_EXPIRE_MINUTES` | 480 | Login lifetime. |
-| `CORS_ORIGINS` | `["http://localhost:5173"]` | JSON list of allowed browser origins (your Vercel URL in production). |
-| `LLM_BASE_URL` | `http://localhost:11434` | Where the Ollama server is. |
-| `LLM_MODEL` | `llama3.1:8b` | Which model to ask. |
-| `LLM_TIMEOUT_SECONDS` | 300 | Per-request timeout. |
-| `LLM_CONTEXT_TOKENS` | 16384 | Context window requested from Ollama. |
+| **`GOOGLE_API_KEY`** (or `GEMINI_API_KEY`) | unset | **Required.** Free key from https://aistudio.google.com/apikey |
+| `LLM_MODEL` | `gemini-2.5-flash` | Which Gemini model to ask. |
+| `LLM_TIMEOUT_SECONDS` | 120 | Per-request timeout. |
+| `LLM_REQUESTS_PER_MINUTE` | 10 | Client-side rate limit (0 = off). |
 | `EXTRACTION_WORKERS` | 3 | Parallel bill workers. |
 | `MAX_PROMPT_CHARS` | 60000 | Bills with longer text are refused, not truncated. |
 | `STORAGE_BACKEND` | `local` | `local` or `s3`. |
 | `STORAGE_DIR` | `backend/storage` | Folder for local storage (on Render: the disk mount `/var/data`). |
 | `S3_BUCKET`, `S3_ENDPOINT_URL`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PREFIX` | unset | For `s3` storage (these are storage credentials, only needed if you choose S3). |
 | `MAX_UPLOAD_MB` / `MAX_FILES_PER_UPLOAD` / `MAX_PDF_PAGES` | 20 / 50 / 30 | Upload limits. |
-| `MIN_TEXT_CHARS_PER_PAGE` / `OCR_DPI` / `TESSERACT_CMD` | 40 / 300 / unset | OCR behavior; set `TESSERACT_CMD` if Tesseract isn't on PATH. |
+| `MIN_TEXT_CHARS_PER_PAGE` / `OCR_DPI` / `TESSERACT_CMD` | 40 / 300 / unset | OCR behavior; Tesseract is optional; without it scanned pages go to Gemini vision. |
 | `REVIEW_CONFIDENCE_THRESHOLD` | 0.85 | Below this → review. |
 | `MAX_BILLING_PERIOD_DAYS` | 95 | Longer periods → review. |
 | `OUTLIER_RATIO` / `OUTLIER_MIN_HISTORY` | 3.0 / 3 | Outlier rule. |
@@ -609,15 +609,13 @@ Frontend (set in the Vercel project settings, not in a file): `VITE_API_URL` = t
 
 ## 17. Run it on your computer
 
-Prerequisites: **Python 3.11+**, **Node 20+**, **Ollama** (https://ollama.com) with a model, and
-optionally **Tesseract** for scanned bills
-(https://github.com/UB-Mannheim/tesseract/wiki; add it to PATH or set `TESSERACT_CMD`). Poppler is
+Prerequisites: **Python 3.11+**, **Node 20+**, a free **Gemini API key** (https://aistudio.google.com/apikey), and
+optionally **Tesseract** for scanned bills (without it, Gemini vision reads them). Poppler is
 not needed.
 
 ```powershell
-# 0. Start the AI (once; leave it running)
-ollama pull llama3.1:8b
-ollama serve            # skip if the Ollama desktop app is already running
+# 0. Give the backend your Gemini key (PowerShell; set it in the same terminal that runs the API)
+$env:GOOGLE_API_KEY = "your-key-here"
 
 # 1. Backend
 cd backend
@@ -678,7 +676,7 @@ samples/
    each, compare with the page image, and Approve. Then look at the Dashboard (choose a period that
    covers 2023-2026) and generate a Report.
 2. **Check the AI.** Run `pytest -m live` (section 19): it sends the 8 text-layer samples to your
-   real Ollama model and compares every extracted field with the manifest. This is the quickest way to
+   real Gemini model and compares every extracted field with the manifest. This is the quickest way to
    decide if your chosen model is good enough.
 3. **Check the maths.** `manifest.json` has `expected_kgco2e` for each bill, worked out by hand
    independently of the code (`expected_working` explains each). After approving, the bill's total
@@ -697,7 +695,7 @@ What each bill is designed to test:
 | `in-pune-electricity-2024-03-cross-fy` | 16 Mar-15 Apr: split across the April 1 fiscal-year boundary and two different CEA factors. |
 | `in-chennai-electricity-2024-02-meter-readings` | No total printed: (current − previous) × multiplier 20. The AI must not calculate it. |
 | `in-chennai-gas-2024-02-mmbtu` | Indian gas in MMBtu converted to TJ for the IPCC factor. |
-| `in-pune-electricity-2024-02-scanned` | Image-only scan: needs Tesseract OCR. |
+| `in-pune-electricity-2024-02-scanned` | Image-only scan: needs OCR (Tesseract or Gemini vision). |
 | `in-chennai-electricity-2023-12-two-pages` | Consumption appears on page 2. |
 | `uk-london-electricity-2025-12-cross-year` | Dec 2025-Jan 2026: DESNZ 2025 and 2026 factors. |
 | `uk-london-gas-2025-03` | UK gas in kWh (gross CV). |
@@ -714,8 +712,8 @@ Never treat the fictional emissions numbers as real.
 
 ```powershell
 cd backend
-.venv\Scripts\python -m pytest              # all offline tests: SQLite in memory, no network, no Ollama
-.venv\Scripts\python -m pytest -m live -v   # opt-in: real Ollama model on the sample bills
+.venv\Scripts\python -m pytest              # all offline tests: SQLite in memory, no network, no API key
+.venv\Scripts\python -m pytest -m live -v   # opt-in: real Gemini model on the sample bills (needs GOOGLE_API_KEY)
 ```
 
 - **Unit tests:** units and derivation, factor selection, pro-rating and the engine (expected
@@ -726,7 +724,7 @@ cd backend
   S3 via `moto`).
 - **`test_integration_samples.py`:** every sample bill end to end (see section 18).
 - **`test_live_extraction.py`** (`-m live`): the real model vs the manifest. Skipped automatically if
-  no Ollama server is reachable.
+  `GOOGLE_API_KEY` is not set.
 - **`test_migrations.py`:** fails if a model changes without a matching Alembic migration.
 
 Frontend: `cd frontend && npm run build` must succeed.
@@ -743,8 +741,8 @@ No Docker is used.
 2. Build: `pip install -r requirements.txt`. Start: `alembic upgrade head && python -m app.seed &&
    uvicorn app.main:app --host 0.0.0.0 --port $PORT` (migrates and loads factors on every deploy).
    Health check: `/api/health`.
-3. Set in the Render dashboard: `CORS_ORIGINS` = `["https://<your-app>.vercel.app"]` and
-   `LLM_BASE_URL` = the URL of your Ollama server. `JWT_SECRET` and `DATABASE_URL` are filled
+3. Set in the Render dashboard: `GOOGLE_API_KEY` = your Gemini key. No CORS setting is needed (the API
+   accepts requests from any origin). `JWT_SECRET` and `DATABASE_URL` are filled
    automatically.
 4. **Storage:** the blueprint attaches a persistent disk at `/var/data` (paid plan). On the free plan
    disks are ephemeral: set `STORAGE_BACKEND=s3` and the `S3_*` variables instead (e.g. Supabase
@@ -754,17 +752,14 @@ No Docker is used.
 1. Import the same repo, set **Root Directory** to `frontend` (framework Vite is detected).
 2. Add the environment variable `VITE_API_URL` = `https://<your-api>.onrender.com`, then deploy.
    `vercel.json` makes page refreshes on `/dashboard` etc. work.
-3. Put the resulting Vercel URL into the backend's `CORS_ORIGINS` and redeploy the backend.
 
-**The AI server.** Render cannot run a useful language model. Run Ollama yourself on a machine with
-enough memory/GPU (a cloud VM, or your own PC through a tunnel), `ollama pull llama3.1:8b`, and point
-`LLM_BASE_URL` at it. Until it is reachable, uploaded bills become `failed` with a readable reason and
-can be reprocessed from the Bills/Review pages once it is up. Do not expose an open Ollama server to
-the internet without protection (a firewall, VPN or reverse-proxy login), since Ollama itself has no
-authentication.
+**The AI.** Gemini is a hosted API, so there is nothing to run yourself: just set `GOOGLE_API_KEY` in
+the Render dashboard. On the free Gemini tier requests are limited (about 10 per minute for Flash);
+GreenTrace spaces its calls to stay under that and retries with backoff. If a bill still fails with a
+rate-limit message, click **Reprocess** a minute later, or enable billing on the key.
 
-**OCR on Render.** The native Python runtime has no Tesseract, so image-only (scanned) bills fail
-with a clear message; bills with a text layer work. Supporting scans needs a Docker-based service.
+**OCR on Render.** The native Python runtime has no Tesseract, so scanned (image-only) pages are
+read by **Gemini vision** with the same `GOOGLE_API_KEY`. No extra setup or Docker is needed.
 
 **Background jobs** run in a thread pool inside the API process, which is right for one API
 instance. For several instances move processing to a shared queue (RQ/Celery + Redis);
@@ -809,14 +804,15 @@ need a Bearer token and are limited to your organization.
 
 | Symptom | Cause / fix |
 |---|---|
-| Bill `failed`: "Could not reach the extraction model..." | Ollama isn't running or `LLM_BASE_URL` is wrong. Start it, then click **Reprocess**. |
-| Bill `failed`: "...Run: ollama pull <model>" | The model isn't downloaded on that Ollama server. |
-| Bill `failed`: "looks scanned... Tesseract is not installed" | Install Tesseract and put it on PATH / set `TESSERACT_CMD` (not possible on Render's native runtime). |
+| Bill `failed`: "GOOGLE_API_KEY is not set..." | Set `GOOGLE_API_KEY` on the server and restart it, then click **Reprocess**. |
+| Bill `failed`: "Gemini rejected the API key" | The key is wrong or revoked. Create a new one at aistudio.google.com/apikey. |
+| Bill `failed`: "Could not reach the Gemini API" | Rate limit (free tier) or network. Wait a minute, then click **Reprocess**. |
+| Bill `failed`: "looks scanned... neither Tesseract nor a GOOGLE_API_KEY" | Set `GOOGLE_API_KEY` (Gemini reads the scan) or install Tesseract. |
 | Bill `failed`: "invalid data twice" | The model can't follow the format. Use a larger model. |
 | Bill `failed`: "text is too long" | Upload only the bill pages (limit 60,000 characters). |
 | Approved bill shows a calculation error | No factor covers its dates/region/unit. Add the factor on the *Emission factors* page, then an admin runs *Recalculate*. |
 | Facility creation says "No emission factors exist for region..." | Use a known region (`IN`, `UK`, `US`, `US-CAMX` ...). |
-| Browser: CORS error after deploying | Set `CORS_ORIGINS` on Render to your exact Vercel URL (JSON list), and `VITE_API_URL` on Vercel. |
+| Browser: network error / `Failed to fetch` after deploying | `VITE_API_URL` on Vercel is missing or wrong (it must be the Render URL, https, no trailing path). Fix it and **redeploy** the frontend, since it is baked in at build time. |
 | Everyone is logged out after a restart | The JWT secret wasn't persisted (read-only/ephemeral storage). Set `JWT_SECRET`. |
 | Uploaded files vanish after a deploy on Render free | Ephemeral disk; use `STORAGE_BACKEND=s3`. |
 | Everything goes to review | Expected for new accounts. Also check model confidence and the issue list on each bill. |

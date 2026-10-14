@@ -20,14 +20,18 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    settings = get_settings()
     app = FastAPI(title="GreenTrace API", version="0.2.0", lifespan=lifespan)
+    # Any origin may call the API. That is safe here because login is a Bearer token sent in the
+    # Authorization header (no cookies), so a foreign site cannot ride on the user's session, and
+    # allow_credentials stays False. This means no per-deployment origin list is needed.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=["*"],
+        allow_credentials=False,
         allow_methods=["*"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["*"],
         expose_headers=["X-Page-Count", "X-Highlight"],
+        max_age=86400,
     )
 
     api = APIRouter(prefix="/api")

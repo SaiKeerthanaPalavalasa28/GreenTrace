@@ -101,7 +101,7 @@ def test_scanned_bill_without_ocr_fails_with_reason_and_batch_continues(api, mon
                           params={"ids": ",".join(r["bill_id"] for r in results)}).json()
     by_id = {s["id"]: s for s in statuses}
     scan, broken, good = (by_id[r["bill_id"]] for r in results)
-    assert scan["status"] == "failed" and "Tesseract is not installed" in scan["failure_reason"]
+    assert scan["status"] == "failed" and "GOOGLE_API_KEY" in scan["failure_reason"]
     assert broken["status"] == "failed" and "could not be read as a PDF" in broken["failure_reason"]
     assert good["status"] == "needs_review"
 

@@ -1,5 +1,5 @@
 # Render Blueprint: Postgres + the FastAPI backend (native Python, no Docker).
-# After the first deploy, set CORS_ORIGINS (your Vercel URL) and LLM_BASE_URL in the dashboard.
+# After the first deploy, set GOOGLE_API_KEY in the dashboard.
 databases:
   - name: greentrace-db
     plan: free
@@ -29,9 +29,7 @@ services:
         generateValue: true
       - key: STORAGE_DIR
         value: /var/data
-      - key: CORS_ORIGINS
-        value: '["https://YOUR-APP.vercel.app"]'
-      - key: LLM_BASE_URL
-        sync: false          # URL of an Ollama server, e.g. https://my-ollama.example.com
+      - key: GOOGLE_API_KEY
+        sync: false          # Gemini API key from https://aistudio.google.com/apikey
       - key: LLM_MODEL
-        value: llama3.1:8b
+        value: gemini-2.5-flash
