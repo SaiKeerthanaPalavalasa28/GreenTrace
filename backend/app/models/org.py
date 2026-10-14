@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, CreatedAtMixin, IdMixin
@@ -14,6 +14,11 @@ class Organization(IdMixin, CreatedAtMixin, Base):
     default_region: Mapped[str] = mapped_column(String(40))
     # 4 = April (Indian fiscal year, BRSR); 1 = calendar year.
     fiscal_year_start_month: Mapped[int] = mapped_column(Integer, default=4)
+    # Emission allowance per scope for the reporting year, in tonnes CO2e. Used vs. allowance
+    # decides the green / orange / red zone. NULL = not set yet.
+    scope1_budget_t: Mapped[float | None] = mapped_column(Float)
+    scope2_budget_t: Mapped[float | None] = mapped_column(Float)
+    scope3_budget_t: Mapped[float | None] = mapped_column(Float)
 
     facilities: Mapped[list["Facility"]] = relationship(back_populates="organization")
 

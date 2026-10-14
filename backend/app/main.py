@@ -1,11 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import audit, auth, bills, dashboard, facilities, factors, reports, review, users
+from app.api import audit, auth, bills, dashboard, facilities, factors, reports, review, scopes, users
 from app.config import get_settings
+from app.deps import block_read_only_writes
 from app.pipeline.queue import get_queue, requeue_unfinished
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -35,8 +36,9 @@ def create_app() -> FastAPI:
     )
 
     api = APIRouter(prefix="/api")
-    for module in (auth, users, facilities, factors, bills, review, dashboard, reports, audit):
-        api.include_router(module.router)
+    api.include_router(auth.router)
+    for module in (users, facilities, factors, bills, review, dashboard, reports, audit, scopes):
+        api.include_router(module.router, dependencies=[Depends(block_read_only_writes)])
 
     @api.get("/health", tags=["meta"])
     def health():

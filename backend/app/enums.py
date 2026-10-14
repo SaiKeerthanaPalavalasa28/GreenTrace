@@ -21,8 +21,13 @@ class BillStatus(StrEnum):
 
 
 class Role(StrEnum):
-    admin = "admin"
-    member = "member"
+    admin = "admin"  # can edit everything
+    manager = "manager"  # view only
+    auditor = "auditor"  # view only
+    member = "member"  # legacy role from before managers/auditors existed; can still write
+
+
+READ_ONLY_ROLES = frozenset({Role.manager.value, Role.auditor.value})
 
 
 class ReportingFramework(StrEnum):

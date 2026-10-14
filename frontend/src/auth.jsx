@@ -35,11 +35,8 @@ export function AuthProvider({ children }) {
     await refresh()
   }
 
-  const register = async (payload) => {
-    const { access_token } = await api('/auth/register', { method: 'POST', body: payload })
-    setToken(access_token)
-    await refresh()
-  }
+  // Organization sign-up: the server emails a separate password to the admin, manager and auditor.
+  const registerOrg = (payload) => api('/auth/register-org', { method: 'POST', body: payload })
 
   const logout = () => {
     setToken(null)
@@ -47,7 +44,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ me, loading, login, register, logout, isAdmin: me?.user.role === 'admin' }}>
+    <AuthContext.Provider value={{ me, loading, login, registerOrg, logout, isAdmin: me?.user.role === 'admin', canEdit: me?.user.role === 'admin' }}>
       {children}
     </AuthContext.Provider>
   )

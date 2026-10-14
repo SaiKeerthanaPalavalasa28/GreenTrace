@@ -24,6 +24,37 @@ class RegisterIn(BaseModel):
     full_name: str = Field("", max_length=200)
 
 
+class RegisterOrgIn(BaseModel):
+    """Organization sign-up: three company mailboxes, each of which receives its own credentials."""
+    org_name: str = Field(min_length=1, max_length=200)
+    reporting_framework: ReportingFramework = ReportingFramework.BRSR
+    default_region: str = Field("IN", min_length=1, max_length=40)
+    fiscal_year_start_month: int = Field(4, ge=1, le=12)
+    admin_email: EmailStr
+    manager_email: EmailStr
+    auditor_email: EmailStr
+    admin_name: str = Field("", max_length=200)
+    manager_name: str = Field("", max_length=200)
+    auditor_name: str = Field("", max_length=200)
+
+    @model_validator(mode="after")
+    def _distinct_emails(self):
+        emails = [self.admin_email.lower(), self.manager_email.lower(), self.auditor_email.lower()]
+        if len(set(emails)) != 3:
+            raise ValueError("The admin, manager and auditor must have three different email addresses")
+        return self
+
+
+class RegisterOrgOut(BaseModel):
+    organization: str
+    delivery: list[dict]  # [{"role", "email", "sent", "error"}]
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=10, max_length=128)
+
+
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
@@ -40,6 +71,9 @@ class OrganizationOut(ORM):
     reporting_framework: str
     default_region: str
     fiscal_year_start_month: int
+    scope1_budget_t: float | None = None
+    scope2_budget_t: float | None = None
+    scope3_budget_t: float | None = None
 
 
 class UserOut(ORM):

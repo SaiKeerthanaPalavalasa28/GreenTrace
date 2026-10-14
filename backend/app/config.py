@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     """Configuration with working defaults: no .env file and no API keys are needed. Real process
     environment variables (e.g. DATABASE_URL, set by the deployment) still override a default."""
 
-    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    model_config = SettingsConfigDict(
+        extra="ignore", populate_by_name=True, env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8"
+    )
 
     app_env: str = "development"
     # Supabase: use the Postgres connection string, e.g.
@@ -25,6 +27,21 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 8 * 60
+
+    # Outgoing mail (credentials for new organizations). Any SMTP server works, e.g. Gmail with an
+    # app password: SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_USER=you@gmail.com SMTP_PASSWORD=...
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None  # defaults to smtp_user
+    smtp_use_ssl: bool = False  # True = implicit TLS (port 465); False = STARTTLS
+    # Development only: print emails to the server log instead of sending them.
+    mail_console_only: bool = False
+    # The old one-person signup (no email delivery check). Off: organizations sign up via
+    # /auth/register-org, which emails each role its own credentials.
+    allow_direct_signup: bool = False
+    app_url: str = "http://localhost:5173"  # link placed in the credentials email
 
     storage_backend: Literal["local", "s3"] = "local"
     storage_dir: Path = BACKEND_DIR / "storage"  # local backend

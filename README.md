@@ -840,3 +840,26 @@ need a Bearer token and are limited to your organization.
    uniform across a billing period when splitting it.
 8. **Single API instance** for background jobs (see section 20).
 9. **Security hardening** still to do: rate limiting, password reset, MFA, separation of duties.
+
+---
+
+## Scope tabs, roles and emailed logins (current app)
+
+The app is organised around three tabs, **Scope 1 / 2 / 3**. Each takes PDFs, counts the emissions in
+them and flags anything suspicious (negative or implausibly large values, double-counted lines, totals
+that don't add up, wrong-scope data, spikes versus history, edited PDFs, unreadable scans). The
+dashboard combines all three: used, left, a stacked chart, and a green / orange / red status
+(orange from 70% of the budget, red from 90%) with a sound and screen flash. **Report** gives the final
+summary, flags and improvement suggestions, and downloads as PDF.
+
+* **Sign-up** (`/register`): an organization enters an admin, manager and auditor email. Each gets
+  its own generated password by email. Nobody chooses a password, so you can only get in by receiving
+  the mail. **Admin** edits everything; **manager** and **auditor** are view-only (enforced on the server).
+* **Email needs SMTP.** Set these environment variables on the backend (Gmail example uses an
+  app password): `SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_USER=you@gmail.com SMTP_PASSWORD=... APP_URL=https://your-frontend`.
+  Without them sign-up returns an error rather than pretending to send. `MAIL_CONSOLE_ONLY=true` prints
+  mails to the server log for local development only.
+* Budgets (tonnes CO2e per scope) are set by the admin on the dashboard; no budget means no status colour.
+* Emission factors for these tabs are **indicative** averages in `backend/app/scope_analysis.py`; replace
+  them with verified factors before external reporting. Scanned (image-only) PDFs are flagged, not read.
+* The earlier utility-bill pipeline is still in the code (its pages are no longer in the menu).

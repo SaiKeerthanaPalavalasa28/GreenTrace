@@ -2,12 +2,12 @@ import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.enums import Role
+from app.enums import READ_ONLY_ROLES, Role
 from app.models import User
 from app.security import decode_access_token
 
@@ -46,3 +46,9 @@ def require_admin(user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+
+def block_read_only_writes(request: Request, user: CurrentUser) -> None:
+    """Router-level guard: managers and auditors can look at everything but change nothing."""
+    if request.method not in ("GET", "HEAD", "OPTIONS") and user.role in READ_ONLY_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, f"Your role ({user.role}) has view-only access")

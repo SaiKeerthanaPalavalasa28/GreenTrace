@@ -4,6 +4,7 @@ import os
 os.environ["JWT_SECRET"] = "test-secret-" + "x" * 40
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["REQUEUE_ON_STARTUP"] = "false"
+os.environ["ALLOW_DIRECT_SIGNUP"] = "true"
 
 import uuid
 from datetime import date
